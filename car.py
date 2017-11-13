@@ -14,7 +14,7 @@ SPEED_MARGIN = 0.1
 ACCEL_MAG = 0.3
 
 # Desired heading
-TARGET_HEADING = np.radians(90)
+TARGET_HEADING = -np.radians(90)
 
 # Allowed error on heading. 
 # Warning: If the margin is too small relative to the 
