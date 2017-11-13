@@ -42,11 +42,18 @@ class Car(Agent):
         self.pos = np.array(pos)
         self.speed = speed
         self.heading = heading
-        self.lr = 1
+
+        # Initialize the bicycle model
+        # These constants can be varied if we want to change 
+        # how the steering angle effects the turning kinematics
+        self.lr = 1 
         self.lf = 1
-        self.sideslip = 0
-        self.accel = 0
-        self.steer = 0
+
+        # Initialize inputs to 0 
+        self.accel = 0 # longitudinal acceleration effects speed directly
+        # steering angle in radians controls the angular velocity 
+        # via the bicycle model kinematics
+        self.steer = 0 
 
     def step(self):
         '''
@@ -118,20 +125,32 @@ class Car(Agent):
         self.steer = -STEER_MAG
 
     def bicycle_model(self):
+        '''
+        Returns a tuple of (next_speed, next_heading, next_position) after running
+        a single update step to the bicycle model. 
+
+        The controls for the bicycle model are self.steer and self.accel which 
+        control the steering angle in radians and the longitudinal acceleration.
+
+        Reference: http://www.me.berkeley.edu/~frborrel/pdfpub/IV_KinematicMPC_jason.pdf
+        '''
+
         # Sideslip
-        self.sideslip = np.arctan(self.lr*np.tan(self.steer)/(self.lr + self.lf))
-        self.sideslip = wrap_angle(self.sideslip)
+        # Beta = arctan(lr*tan(d)/(lr+lf))
+        sideslip = np.arctan(self.lr*np.tan(self.steer)/(self.lr + self.lf))
+        sideslip = wrap_angle(sideslip)
 
         # Speed
         next_speed = self.speed + self.accel
 
         # Heading
-        next_heading = self.heading + self.speed*np.sin(self.sideslip)/self.lr
+        # delta_heading = v*sin(B)/lr
+        next_heading = self.heading + next_speed*np.sin(sideslip)/self.lr
         next_heading = wrap_angle(next_heading)
 
         # Position
-        delta_x = self.speed*np.cos(self.heading + self.sideslip)
-        delta_y = self.speed*np.sin(self.heading + self.sideslip)
+        delta_x = next_speed*np.cos(next_heading + sideslip)
+        delta_y = next_speed*np.sin(next_heading + sideslip)
 
         next_pos = self.pos + np.array((delta_x, delta_y))
 
