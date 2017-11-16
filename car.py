@@ -2,6 +2,10 @@ import numpy as np
 import random
 from mesa import Agent
 
+# Minimum distance from neighbors
+RISK_TOLERANCE = 5
+ATTENTION = 0.95
+
 # Desired speed
 TARGET_SPEED = 10
 
@@ -35,13 +39,24 @@ class Car(Agent):
     '''
     '''
 
-    def __init__(self, unique_id, model, pos, speed, heading):
+    def __init__(self, unique_id, model, pos, speed, heading,
+                 risk_tolerance=RISK_TOLERANCE, attention=ATTENTION,
+                 target_speed=TARGET_SPEED, speed_margin=SPEED_MARGIN,
+                 accel_mag=ACCEL_MAG, heading_margin=HEADING_MARGIN,
+                 steer_mag=STEER_MAG):
         '''
         '''
         super().__init__(unique_id, model)
         self.pos = np.array(pos)
         self.speed = speed
         self.heading = heading
+        self.risk_tolerance = risk_tolerance
+        self.attention = attention
+        self.target_speed = target_speed
+        self.speed_margin = speed_margin
+        self.accel_mag = accel_mag
+        self.heading_margin = heading_margin
+        self.steer_mag = steer_mag
 
         # Initialize the bicycle model
         # These constants can be varied if we want to change
@@ -58,12 +73,11 @@ class Car(Agent):
     def step(self):
         '''
         '''
-
         # Speed control
-        speed_error = self.speed - TARGET_SPEED
-        if speed_error < -SPEED_MARGIN:
+        speed_error = self.speed - self.target_speed
+        if speed_error < -self.speed_margin:
             self.accelerate()
-        elif speed_error > SPEED_MARGIN:
+        elif speed_error > self.speed_margin:
             self.brake()
         else:
             self.maintain_speed()
@@ -72,9 +86,9 @@ class Car(Agent):
         # Heading control
         heading_error = wrap_angle(self.heading - TARGET_HEADING)
 
-        if heading_error < -HEADING_MARGIN:
+        if heading_error < -self.heading_margin:
             self.turn_left()
-        elif heading_error > HEADING_MARGIN:
+        elif heading_error > self.heading_margin:
             self.turn_right()
         else:
             self.go_straight()
@@ -85,17 +99,40 @@ class Car(Agent):
         # Run bicycle model
         (next_speed, next_heading, next_pos) = self.bicycle_model()
 
+        # Enforce space boundaries
+        next_pos = self.boundary_adj(next_pos)
         # Take action if no collision
-        collision = self.collision(next_pos)
-        if not collision:
-            self.model.space.move_agent(self, next_pos)
-            self.speed = next_speed
-            self.heading = next_heading
-        else:
-            print('{} Collision!', self.unique_id)
+        if self.collision(next_pos):
+            speed_actions = [self.maintain_speed, self.accelerate, self.brake]
+            heading_actions = [self.turn_left, self.turn_right, self.go_straight]
+            for sa in speed_actions:
+                for ha in heading_actions:
+                    (next_speed, next_heading, next_pos) = self.bicycle_model()
+                    next_pos = self.boundary_adj(next_pos)
+                    if not self.collision(next_pos):
+                        break
+        self.model.space.move_agent(self, next_pos)
+        self.speed = next_speed
+        self.heading = next_heading
+        # collision = self.collision(next_pos)
+        # if not collision:
+        #     self.model.space.move_agent(self, next_pos)
+        #     self.speed = next_speed
+        #     self.heading = next_heading
+        # else:
+        #     print('{} Collision!', self.unique_id)
 
-        print("car id: {:3}, speed: {:5.1f}, heading: {:5.1f}, pos x: {:5.1f}, pos y: {:5.1f}, steer: {:5.1f}, accel: {:5.1f}".format(
-            self.unique_id, self.speed, np.degrees(self.heading),  self.pos[0], self.pos[1], np.degrees(self.steer), self.accel))
+        # print("car id: {:3}, speed: {:5.1f}, heading: {:5.1f}, pos x: {:5.1f}, pos y: {:5.1f}, steer: {:5.1f}, accel: {:5.1f}".format(
+        #     self.unique_id, self.speed, np.degrees(self.heading),  self.pos[0], self.pos[1], np.degrees(self.steer), self.accel))
+
+    def boundary_adj(self, pos):
+        space = self.model.space
+        x = min(max(pos[0], space.x_min), space.x_max - 1e-8)
+        y = space.y_min + ((pos[1] - space.y_min) % space.height)
+        if isinstance(pos, tuple):
+            return (x, y)
+        else:
+            return np.array((x, y))
 
     def horizontally_aligned(self, x1, x2, car_width):
         right_car = max(x1, x2)
@@ -117,8 +154,8 @@ class Car(Agent):
         attention = 0.5
         car_width = 0.01
         car_length = 0.025
-        v_safe_space = car_length * (1 - risk_tolerance)
-        h_safe_space = car_width * (1 - risk_tolerance)
+        v_safe_space = car_length * (1 - self.risk_tolerance)
+        h_safe_space = car_width * (1 - self.risk_tolerance)
         neighbors = self.model.space.get_neighbors(self.pos, 5, False)
         colliding = False
         for neighbor in neighbors:
@@ -136,7 +173,7 @@ class Car(Agent):
             or (x1 - car_width * 0.5) - (x2 + car_width * 0.5) <= h_safe_space):
                 colliding = True
 
-        if random.random() > attention:
+        if random.random() > self.attention:
             colliding = not colliding
         return colliding
 
@@ -144,19 +181,19 @@ class Car(Agent):
         self.accel = 0
 
     def accelerate(self):
-        self.accel = ACCEL_MAG
+        self.accel = self.accel_mag
 
     def brake(self):
-        self.accel = -ACCEL_MAG
+        self.accel = -self.accel_mag
 
     def go_straight(self):
         self.steer = 0
 
     def turn_left(self):
-        self.steer = STEER_MAG
+        self.steer = self.steer_mag
 
     def turn_right(self):
-        self.steer = -STEER_MAG
+        self.steer = -self.steer_mag
 
     def bicycle_model_acc(self, accuracy):
         '''

@@ -47,13 +47,16 @@ class ChaosModel(Model):
             pos = np.array((x, y))
 
             # Random speed
-            speed = random.random() * self.max_speed
+            speed = random.random() * 5
+
+            # Random target speed
+            target_speed = random.random() * 5 + 10
 
             # Random heading
-            heading = np.radians(random.random()*360 - 180)
+            heading = np.radians(random.random()*10 - 95)
 
             # Initialize car
-            car = Car(i, self, pos, speed, heading)
+            car = Car(i, self, pos, speed, heading, target_speed=target_speed)
             self.space.place_agent(car, pos)
             self.schedule.add(car)
 
