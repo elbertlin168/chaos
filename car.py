@@ -26,7 +26,7 @@ TARGET_HEADING = -np.radians(90)
 HEADING_MARGIN = np.radians(1)
 
 # How much steering in each action
-STEER_MAG = np.radians(.5)
+STEER_MAG = np.radians(0.5)
 
 
 def wrap_angle(angles):
@@ -106,11 +106,15 @@ class Car(Agent):
             speed_actions = [self.maintain_speed, self.accelerate, self.brake]
             heading_actions = [self.turn_left, self.turn_right, self.go_straight]
             for sa in speed_actions:
+                collide = True
                 for ha in heading_actions:
                     (next_speed, next_heading, next_pos) = self.bicycle_model()
                     next_pos = self.boundary_adj(next_pos)
                     if not self.collision(next_pos):
+                        collide = False
                         break
+                if not collide:
+                    break
         self.model.space.move_agent(self, next_pos)
         self.speed = next_speed
         self.heading = next_heading
