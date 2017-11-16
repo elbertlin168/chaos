@@ -2,6 +2,9 @@ import numpy as np
 
 from mesa import Agent
 
+# Minimum distance from neighbors
+SAFE_DIST = 5
+
 # Desired speed
 TARGET_SPEED = 10
 
@@ -35,13 +38,22 @@ class Car(Agent):
     '''
     '''
 
-    def __init__(self, unique_id, model, pos, speed, heading):
+    def __init__(self, unique_id, model, pos, speed, heading,
+                 safe_dist=SAFE_DIST, target_speed=TARGET_SPEED,
+                 speed_margin=SPEED_MARGIN, accel_mag=ACCEL_MAG,
+                 heading_margin=HEADING_MARGIN, steer_mag=STEER_MAG):
         '''
         '''
         super().__init__(unique_id, model)
         self.pos = np.array(pos)
         self.speed = speed
         self.heading = heading
+        self.safe_dist = safe_dist
+        self.target_speed = target_speed
+        self.speed_margin = speed_margin
+        self.accel_mag = accel_mag
+        self.heading_margin = heading_margin
+        self.steer_mag = steer_mag
 
         # Initialize the bicycle model
         # These constants can be varied if we want to change 
@@ -58,6 +70,8 @@ class Car(Agent):
     def step(self):
         '''
         '''
+
+
         
         # Speed control
         speed_error = self.speed - TARGET_SPEED
@@ -85,10 +99,14 @@ class Car(Agent):
         # Run bicycle model
         (next_speed, next_heading, next_pos) = self.bicycle_model()
 
+        # Enforce space boundaries
+        space = self.model.space
+        next_pos[0] = min(max(next_pos[0], space.x_min), space.x_max - 1e-8)
+        next_pos[1] = space.y_min + ((next_pos[1] - space.y_min) % space.height)
         # Take action if no collision
         collision = self.collision(next_pos)
         if not collision:
-            self.model.space.move_agent(self, next_pos)
+            space.move_agent(self, next_pos)
             self.speed = next_speed
             self.heading = next_heading
         else: 
