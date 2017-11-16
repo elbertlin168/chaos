@@ -113,6 +113,7 @@ class Car(Agent):
 
     def collision(self, new_pos):
         risk_tolerance = 0.5
+        accuracy = 0.95
         attention = 0.5
         car_width = 0.01
         car_length = 0.025
@@ -121,10 +122,11 @@ class Car(Agent):
         neighbors = self.model.space.get_neighbors(self.pos, 5, False)
         colliding = False
         for neighbor in neighbors:
+            _, _, neighbor_pos = neighbor.bicycle_model_acc(accuracy)
             x1 = new_pos[0]
-            x2 = neighbor.pos[0]
+            x2 = neighbor_pos[0]
             y1 = new_pos[1]
-            y2 = neighbor.pos[1]
+            y2 = neighbor_pos[1]
             if y2 > y1 and self.horizontally_aligned(x1, x2, car_width) and \
             (y2 - car_length * 0.5) - (y1 + car_length * 0.5) <= v_safe_space:
                 colliding = True
@@ -156,7 +158,7 @@ class Car(Agent):
     def turn_right(self):
         self.steer = -STEER_MAG
 
-    def bicycle_model(self):
+    def bicycle_model_acc(self, accuracy):
         '''
         Returns a tuple of (next_speed, next_heading, next_position) after running
         a single update step to the bicycle model.
@@ -183,6 +185,14 @@ class Car(Agent):
         # Position
         delta_x = next_speed*np.cos(next_heading + sideslip)
         delta_y = next_speed*np.sin(next_heading + sideslip)
+        if random.random() > 0.5:
+            delta_x += delta_x * (1 - accuracy)
+        else:
+            delta_x -= delta_x * (1 - accuracy)
+        if random.random() > 0.5:
+            delta_y += delta_y * (1 - accuracy)
+        else:
+            delta_y -= delta_y * (1 - accuracy)
 
         next_pos = self.pos + np.array((delta_x, delta_y))
 
@@ -190,3 +200,7 @@ class Car(Agent):
         #      self.unique_id, np.degrees(self.sideslip), self.speed, np.degrees(self.heading), delta_x, delta_y, self.pos[0], self.pos[1], new_pos[0], new_pos[1]))
 
         return (next_speed, next_heading, next_pos)
+
+
+    def bicycle_model(self):
+        return self.bicycle_model_acc(1)
