@@ -22,7 +22,8 @@ class ChaosModel(Model):
 
         # self.space = ContinuousSpace(lanes * 4, 500, True)
         # Just make space square since the display is square
-        self.space = ContinuousSpace(500, 500, True)
+        self.space = ContinuousSpace(lanes * 20, 500, True)
+
         self.make_agents()
         self.running = True
 
