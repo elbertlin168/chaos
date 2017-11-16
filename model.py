@@ -22,10 +22,18 @@ class ChaosModel(Model):
 
         # self.space = ContinuousSpace(lanes * 4, 500, True)
         # Just make space square since the display is square
-        self.space = ContinuousSpace(500, 500, False)
-        
+        self.space = ContinuousSpace(500, 500, True)
         self.make_agents()
         self.running = True
+
+    def reward(self, current_speed, risk, collided):
+        speed_reward = (current_speed < max_speed * 1.1) * \
+                        (1.0 * current_speed / self.max_speed) * 500
+        speed_cost = - (current_speed > max_speed * 1.1) * \
+                        (1.0 * current_speed / self.max_speed) * 800
+        risk_cost = -risk * 200
+        collision_cost = collided * -50000
+        return speed_reward + speed_cost + risk_cost + collision_cost
 
     def make_agents(self):
         '''
@@ -37,14 +45,17 @@ class ChaosModel(Model):
             y = random.random() * self.space.y_max
             pos = np.array((x, y))
 
-            # Random speed 
-            speed = random.random() * self.max_speed
+            # Random speed
+            speed = random.random() * 5
+
+            # Random target speed
+            target_speed = random.random() * 5 + 10
 
             # Random heading
-            heading = np.radians(random.random()*360 - 180)
+            heading = np.radians(random.random()*10 - 95)
 
             # Initialize car
-            car = Car(i, self, pos, speed, heading)
+            car = Car(i, self, pos, speed, heading, target_speed=target_speed)
             self.space.place_agent(car, pos)
             self.schedule.add(car)
 
