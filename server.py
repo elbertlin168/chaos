@@ -5,7 +5,7 @@ from SimpleContinuousModule import SimpleCanvas
 
 
 def chaos_draw(agent):
-    return {"Shape": "circle", "r": 2, "Filled": "true", "Color": "Red"}
+    return {"Shape": "rect", "w": 0.01, "h": 0.025, "Filled": "true", "Color": "Red"}
 
 chaos_canvas = SimpleCanvas(chaos_draw, 500, 500)
 model_params = {
