@@ -1,12 +1,12 @@
 import numpy as np
-
+import random
 from mesa import Agent
 
 # Desired speed
 TARGET_SPEED = 10
 
-# Allowed error on speed. 
-# Warning: If the margin is too small relative to the 
+# Allowed error on speed.
+# Warning: If the margin is too small relative to the
 # accel magnitude it will be unstable
 SPEED_MARGIN = 0.1
 
@@ -16,8 +16,8 @@ ACCEL_MAG = 0.3
 # Desired heading
 TARGET_HEADING = -np.radians(90)
 
-# Allowed error on heading. 
-# Warning: If the margin is too small relative to the 
+# Allowed error on heading.
+# Warning: If the margin is too small relative to the
 # steer magnitude, it will be unstable
 HEADING_MARGIN = np.radians(1)
 
@@ -44,21 +44,21 @@ class Car(Agent):
         self.heading = heading
 
         # Initialize the bicycle model
-        # These constants can be varied if we want to change 
+        # These constants can be varied if we want to change
         # how the steering angle effects the turning kinematics
-        self.lr = 1 
+        self.lr = 1
         self.lf = 1
 
-        # Initialize inputs to 0 
+        # Initialize inputs to 0
         self.accel = 0 # longitudinal acceleration effects speed directly
-        # steering angle in radians controls the angular velocity 
+        # steering angle in radians controls the angular velocity
         # via the bicycle model kinematics
-        self.steer = 0 
+        self.steer = 0
 
     def step(self):
         '''
         '''
-        
+
         # Speed control
         speed_error = self.speed - TARGET_SPEED
         if speed_error < -SPEED_MARGIN:
@@ -91,20 +91,52 @@ class Car(Agent):
             self.model.space.move_agent(self, next_pos)
             self.speed = next_speed
             self.heading = next_heading
-        else: 
+        else:
             print('{} Collision!', self.unique_id)
 
         print("car id: {:3}, speed: {:5.1f}, heading: {:5.1f}, pos x: {:5.1f}, pos y: {:5.1f}, steer: {:5.1f}, accel: {:5.1f}".format(
             self.unique_id, self.speed, np.degrees(self.heading),  self.pos[0], self.pos[1], np.degrees(self.steer), self.accel))
-        
+
+    def horizontally_aligned(self, x1, x2, car_width):
+        right_car = max(x1, x2)
+        left_car = min(x1, x2)
+        rcar_lside = right_car - car_width * 0.5
+        lcar_rside = left_car + car_width * 0.5
+        return rcar_lside <= lcar_rside
+
+    def vertically_aligned(self, y1, y2, car_length):
+        front_car = max(y1, y2)
+        back_car = min(y1, y2)
+        fcar_bside = front_car - car_length * 0.5
+        bcar_fside = back_car + car_length * 0.5
+        return fcar_bside <= bcar_fside
 
     def collision(self, new_pos):
+        risk_tolerance = 0.5
+        attention = 0.5
+        car_width = 0.01
+        car_length = 0.025
+        v_safe_space = car_length * (1 - risk_tolerance)
+        h_safe_space = car_width * (1 - risk_tolerance)
         neighbors = self.model.space.get_neighbors(self.pos, 5, False)
+        colliding = False
         for neighbor in neighbors:
-            if abs(new_pos[0] - neighbor.pos[0]) < 2:
-                if abs(new_pos[1] - neighbor.pos[1]) < 2: 
-                    return True
-        return False
+            x1 = new_pos[0]
+            x2 = neighbor.pos[0]
+            y1 = new_pos[1]
+            y2 = neighbor.pos[1]
+            if y2 > y1 and self.horizontally_aligned(x1, x2, car_width) and \
+            (y2 - car_length * 0.5) - (y1 + car_length * 0.5) <= v_safe_space:
+                colliding = True
+
+            if self.vertically_aligned(y1, y2, car_length) and \
+            ((x2 - car_width * 0.5) - (x1 + car_width * 0.5) <= h_safe_space \
+            or (x1 - car_width * 0.5) - (x2 + car_width * 0.5) <= h_safe_space):
+                colliding = True
+
+        if random.random() > attention:
+            colliding = not colliding
+        return colliding
 
     def maintain_speed(self):
         self.accel = 0
@@ -127,9 +159,9 @@ class Car(Agent):
     def bicycle_model(self):
         '''
         Returns a tuple of (next_speed, next_heading, next_position) after running
-        a single update step to the bicycle model. 
+        a single update step to the bicycle model.
 
-        The controls for the bicycle model are self.steer and self.accel which 
+        The controls for the bicycle model are self.steer and self.accel which
         control the steering angle in radians and the longitudinal acceleration.
 
         Reference: http://www.me.berkeley.edu/~frborrel/pdfpub/IV_KinematicMPC_jason.pdf
@@ -156,6 +188,5 @@ class Car(Agent):
 
         # print("car id: {}, sideslip: {:4.2f}, speed: {:4.2f}, heading: {:4.2f}, dx: {:4.2f}, dy: {:4.2f}, old pos x: {:4.2f}, old pos y: {:4.2f}, new pos x: {:4.2f}, new pos y: {:4.2f}".format(
         #      self.unique_id, np.degrees(self.sideslip), self.speed, np.degrees(self.heading), delta_x, delta_y, self.pos[0], self.pos[1], new_pos[0], new_pos[1]))
-        
-        return (next_speed, next_heading, next_pos)
 
+        return (next_speed, next_heading, next_pos)
