@@ -39,26 +39,33 @@ class ChaosModel(Model):
     def make_agents(self):
         '''
         '''
-        for i in range(self.num_adversaries):
+        car0 = Car(0, self, np.array([250, 250]), 0, np.radians(-90), target_speed=0)
+        self.space.place_agent(car0, car0.pos)
+        self.schedule.add(car0)
 
-            # Random start position
-            x = random.random() * self.space.x_max
-            y = random.random() * self.space.y_max
-            pos = np.array((x, y))
+        car1 = Car(1, self, np.array([250, 350]), 1, np.radians(-90), target_speed=1)
+        self.space.place_agent(car1, car1.pos)
+        self.schedule.add(car1)
+        # for i in range(self.num_adversaries):
 
-            # Random speed
-            speed = random.random() * 5
+        #     # Random start position
+        #     x = random.random() * self.space.x_max
+        #     y = random.random() * self.space.y_max
+        #     pos = np.array((x, y))
 
-            # Random target speed
-            target_speed = random.random() * 5 + 10
+        #     # Random speed
+        #     speed = random.random() * 5
 
-            # Random heading
-            heading = np.radians(random.random()*10 - 95)
+        #     # Random target speed
+        #     target_speed = random.random() * 5 + 10
 
-            # Initialize car
-            car = Car(i, self, pos, speed, heading, target_speed=target_speed)
-            self.space.place_agent(car, pos)
-            self.schedule.add(car)
+        #     # Random heading
+        #     heading = np.radians(random.random()*10 - 95)
+
+        #     # Initialize car
+        #     car = Car(i, self, pos, speed, heading, target_speed=target_speed)
+        #     self.space.place_agent(car, pos)
+        #     self.schedule.add(car)
 
     def step(self):
         self.schedule.step()

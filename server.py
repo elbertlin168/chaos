@@ -5,10 +5,10 @@ from SimpleContinuousModule import SimpleCanvas
 
 
 def chaos_draw(agent):
-    return {"Shape": "rect", "w": 0.03, "h": 0.2, "Filled": "true", "Color": "Red"}
+    return {"Shape": "rect", "w": 0.01, "h": 0.025, "Filled": "true", "Color": "Red"}
 
-lanes = 5
-chaos_canvas = SimpleCanvas(chaos_draw, 500, lanes * 30)
+lanes = 25
+chaos_canvas = SimpleCanvas(chaos_draw, 500, lanes * 20)
 model_params = {
     "lanes": lanes,
     "num_adversaries": 50,

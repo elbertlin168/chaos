@@ -3,8 +3,8 @@ import random
 from mesa import Agent
 
 # Minimum distance from neighbors
-RISK_TOLERANCE = 5
-ATTENTION = 0.95
+RISK_TOLERANCE = 0.5
+ATTENTION = 1
 
 # Desired speed
 TARGET_SPEED = 10
@@ -26,14 +26,14 @@ TARGET_HEADING = -np.radians(90)
 HEADING_MARGIN = np.radians(1)
 
 # How much steering in each action
-STEER_MAG = np.radians(0.5)
+STEER_MAG = np.radians(5)
 
 
 def wrap_angle(angles):
    '''
    Returns angle betwee -pi and pi
    '''
-   return ( angles + np.pi) % (2 * np.pi ) - np.pi
+   return (angles + np.pi) % (2 * np.pi) - np.pi
 
 class Car(Agent):
     '''
@@ -108,6 +108,8 @@ class Car(Agent):
             for sa in speed_actions:
                 collide = True
                 for ha in heading_actions:
+                    sa()
+                    ha()
                     (next_speed, next_heading, next_pos) = self.bicycle_model()
                     next_pos = self.boundary_adj(next_pos)
                     if not self.collision(next_pos):
@@ -118,13 +120,6 @@ class Car(Agent):
         self.model.space.move_agent(self, next_pos)
         self.speed = next_speed
         self.heading = next_heading
-        # collision = self.collision(next_pos)
-        # if not collision:
-        #     self.model.space.move_agent(self, next_pos)
-        #     self.speed = next_speed
-        #     self.heading = next_heading
-        # else:
-        #     print('{} Collision!', self.unique_id)
 
         # print("car id: {:3}, speed: {:5.1f}, heading: {:5.1f}, pos x: {:5.1f}, pos y: {:5.1f}, steer: {:5.1f}, accel: {:5.1f}".format(
         #     self.unique_id, self.speed, np.degrees(self.heading),  self.pos[0], self.pos[1], np.degrees(self.steer), self.accel))
@@ -153,14 +148,12 @@ class Car(Agent):
         return fcar_bside <= bcar_fside
 
     def collision(self, new_pos):
-        risk_tolerance = 0.5
-        accuracy = 0.95
-        attention = 0.5
+        accuracy = 1
         car_width = 0.01
         car_length = 0.025
         v_safe_space = car_length * (1 - self.risk_tolerance)
         h_safe_space = car_width * (1 - self.risk_tolerance)
-        neighbors = self.model.space.get_neighbors(self.pos, 5, False)
+        neighbors = self.model.space.get_neighbors(new_pos, 50, False)
         colliding = False
         for neighbor in neighbors:
             _, _, neighbor_pos = neighbor.bicycle_model_acc(accuracy)
@@ -168,8 +161,8 @@ class Car(Agent):
             x2 = neighbor_pos[0]
             y1 = new_pos[1]
             y2 = neighbor_pos[1]
-            if y2 > y1 and self.horizontally_aligned(x1, x2, car_width) and \
-            (y2 - car_length * 0.5) - (y1 + car_length * 0.5) <= v_safe_space:
+            if self.horizontally_aligned(x1, x2, car_width) and \
+            (y2 + car_length * 0.5) >= (y1 - car_length * 0.5) - v_safe_space:
                 colliding = True
 
             if self.vertically_aligned(y1, y2, car_length) and \
