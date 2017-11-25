@@ -27,10 +27,10 @@ TARGET_HEADING = -np.radians(90)
 HEADING_MARGIN = np.radians(1)
 
 # How much steering in each action
-STEER_MAG = np.radians(8)
+STEER_MAG = np.radians(5)
 
 # Lookahead
-LOOKAHEAD = 5
+LOOKAHEAD = 3
 
 
 def wrap_angle(angles):
@@ -190,11 +190,12 @@ class Car(Agent):
 
         no_actions = np.zeros(len(steers))
 
-        neighbors = self.model.space.get_neighbors(self.pos, 500, False)
+        neighbors = self.model.space.get_neighbors(self.pos, 50, False)
         # if self.unique_id > 0:
             # print("N neighbors:{}".format(len(neighbors)))
         colliding = False
         for neighbor in neighbors:
+            print(self.model.space.get_distance(self.pos, neighbor.pos))
             neighbor_pos_list = neighbor.bicycle_lookahead(no_actions, no_actions, accuracy)
             for new_pos, neighbor_pos in zip(new_pos_list, neighbor_pos_list):
                 if self.collision(new_pos, neighbor_pos):

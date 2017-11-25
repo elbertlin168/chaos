@@ -11,8 +11,8 @@ lanes = 5
 chaos_canvas = SimpleCanvas(chaos_draw, 500, 500)
 model_params = {
     "lanes": lanes,
-    "num_adversaries": 2,
-    "max_speed": 30,
+    "num_adversaries": 10,
+    "max_speed": 5,
 }
 
 server = ModularServer(ChaosModel, [chaos_canvas], "Chaos", model_params)

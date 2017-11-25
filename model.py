@@ -44,15 +44,15 @@ class ChaosModel(Model):
         for i in range(self.num_adversaries):
 
             # Random start position
-            x = random.random() * self.space.x_max
-            y = random.random() * self.space.y_max
+            x = random.random() * self.space.x_max/8 + self.space.x_max/2 - self.space.x_max/16
+            y = random.random() * self.space.y_max/2
             pos = np.array((x, y))
 
             # Random speed
             speed = random.random() * 5
 
             # Random target speed
-            target_speed = random.random() * 5 + 10
+            target_speed = random.random() * 5 
 
             # Random heading
             heading = np.radians(random.random()*360 - 180)
@@ -61,12 +61,19 @@ class ChaosModel(Model):
                 pos = np.array((250,250))
                 speed = 5
                 target_speed = 5
-                heading = 0
+                heading = np.radians(-90)
             elif i == 1:
                 pos = np.array((250, 490))
-                speed = 10
-                target_speed = 10
+                speed = 15
+                target_speed = 15
                 heading = np.radians(-90)
+
+
+            # if i == 0:
+            #     pos = np.array((250,450))
+            #     speed = 15
+            #     target_speed = 15
+            #     heading = np.radians(-90)
 
             # Initialize car
             car = Car(i, self, pos, speed, heading, target_speed=target_speed)
