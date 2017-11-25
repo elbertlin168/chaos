@@ -3,6 +3,14 @@ import random
 from mesa import Agent
 import math
 
+def rand_min_max(a, b):
+    spread = b - a
+    return random.random()*spread + a
+
+def rand_center_spread(center, spread):
+    a = center - spread/2
+    return random.random()*spread + a
+
 # Minimum distance from neighbors
 RISK_TOLERANCE = 0.5
 ATTENTION = 0.95
@@ -16,7 +24,7 @@ TARGET_SPEED = 3
 SPEED_MARGIN = 0.1
 
 # How much accel/brake in each action
-ACCEL_MAG = 0.3
+ACCEL_MAG = 0.5
 
 # Desired heading
 TARGET_HEADING = -np.radians(90)
@@ -27,10 +35,12 @@ TARGET_HEADING = -np.radians(90)
 HEADING_MARGIN = np.radians(1)
 
 # How much steering in each action
-STEER_MAG = np.radians(5)
+STEER_MAG = np.radians(3)
 
 # Lookahead
-LOOKAHEAD = 3
+LOOKAHEAD = 30
+
+GET_NEIGHBOR_DIST = 50
 
 
 def wrap_angle(angles):
@@ -47,7 +57,7 @@ class Car(Agent):
                  risk_tolerance=RISK_TOLERANCE, attention=ATTENTION,
                  target_speed=TARGET_SPEED, speed_margin=SPEED_MARGIN,
                  accel_mag=ACCEL_MAG, heading_margin=HEADING_MARGIN,
-                 steer_mag=STEER_MAG):
+                 steer_mag=STEER_MAG, road_width=100):
         '''
         '''
         super().__init__(unique_id, model)
@@ -61,6 +71,7 @@ class Car(Agent):
         self.accel_mag = accel_mag
         self.heading_margin = heading_margin
         self.steer_mag = steer_mag
+        self.road_width = road_width
 
         # Initialize the bicycle model
         # These constants can be varied if we want to change
@@ -116,12 +127,15 @@ class Car(Agent):
         # if self.unique_id > 0:
             # print("first collision check")
         if self.collision_look_ahead(steers, accels):
+            collide = True
             # if self.unique_id > 0:
             #     print('collision on first check')
             speed_actions = [self.maintain_speed, self.accelerate, self.brake]
-            heading_actions = [self.turn_left, self.turn_right, self.go_straight]
+            if random.random() > 0.5:
+                heading_actions = [self.turn_left, self.turn_right, self.go_straight]
+            else: 
+                heading_actions = [self.turn_right, self.turn_left, self.go_straight]
             for sa in speed_actions:
-                collide = True
                 for ha in heading_actions:
                     accel = sa()
                     steer = ha()
@@ -138,6 +152,15 @@ class Car(Agent):
                         break
                 if not collide:
                     break
+
+            if collide:
+                x = rand_center_spread(self.model.space.x_max/2, self.road_width)
+                # y = random.random() * self.space.y_max
+                y = rand_min_max(0, self.model.space.y_max)
+                print(self.pos)
+                # self.pos = np.array((x, y))
+                # print(self.pos)
+                print('Could not avoid collision')
 
         # if self.unique_id > 0:
         #     print("action at end of choose action: steer {:5.1f} accel{:5.1f}".format(np.degrees(steer), accel))
@@ -164,7 +187,8 @@ class Car(Agent):
         #     print("action taken: steer {:5.1f} accel{:5.1f}".format(np.degrees(self.steer), self.accel))
 
         (next_speed, next_heading, next_pos) = self.bicycle_model(self.steer, self.accel, self.speed, self.heading, self.pos)
-
+        print(self.pos)
+        print(next_pos)
         self.speed = next_speed
         self.heading = next_heading
         self.model.space.move_agent(self, next_pos)
@@ -176,7 +200,11 @@ class Car(Agent):
 
     def boundary_adj(self, pos):
         space = self.model.space
-        x = min(max(pos[0], space.x_min), space.x_max - 1e-8)
+
+        xmin = space.x_max/2 - self.road_width/2
+        xmax = space.x_max/2 + self.road_width/2
+
+        x = min(max(pos[0], xmin), xmax - 1e-8)
         y = space.y_min + ((pos[1] - space.y_min) % space.height)
         if isinstance(pos, tuple):
             return (x, y)
@@ -190,12 +218,12 @@ class Car(Agent):
 
         no_actions = np.zeros(len(steers))
 
-        neighbors = self.model.space.get_neighbors(self.pos, 50, False)
+        neighbors = self.model.space.get_neighbors(self.pos, GET_NEIGHBOR_DIST, False)
         # if self.unique_id > 0:
             # print("N neighbors:{}".format(len(neighbors)))
         colliding = False
         for neighbor in neighbors:
-            print(self.model.space.get_distance(self.pos, neighbor.pos))
+            # print(self.model.space.get_distance(self.pos, neighbor.pos))
             neighbor_pos_list = neighbor.bicycle_lookahead(no_actions, no_actions, accuracy)
             for new_pos, neighbor_pos in zip(new_pos_list, neighbor_pos_list):
                 if self.collision(new_pos, neighbor_pos):
@@ -253,7 +281,7 @@ class Car(Agent):
     #     or (x1 - car_width * 0.5) - (x2 + car_width * 0.5) <= h_safe_space):
 
     def collision(self, new_pos, neighbor_pos):
-        safety_margin = .2
+        safety_margin = .3
         accuracy = 1
         attention = 1
         car_width = 5 #12
@@ -335,6 +363,8 @@ class Car(Agent):
 
         # Speed
         next_speed = speed + accel
+        if next_speed < 1:
+            next_speed = 1
 
         # Heading
         # delta_heading = v*sin(B)/lr
