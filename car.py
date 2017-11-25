@@ -116,8 +116,8 @@ class Car(Agent):
         # if self.unique_id > 0:
             # print("first collision check")
         if self.collision_look_ahead(steers, accels):
-            if self.unique_id > 0:
-                print('collision on first check')
+            # if self.unique_id > 0:
+            #     print('collision on first check')
             speed_actions = [self.maintain_speed, self.accelerate, self.brake]
             heading_actions = [self.turn_left, self.turn_right, self.go_straight]
             for sa in speed_actions:
@@ -160,19 +160,18 @@ class Car(Agent):
 
 
     def step(self):
-        if self.unique_id > 0:
+        # if self.unique_id > 0:
+        #     print("action taken: steer {:5.1f} accel{:5.1f}".format(np.degrees(self.steer), self.accel))
 
-            print("action taken: steer {:5.1f} accel{:5.1f}".format(np.degrees(self.steer), self.accel))
+        (next_speed, next_heading, next_pos) = self.bicycle_model(self.steer, self.accel, self.speed, self.heading, self.pos)
 
-            (next_speed, next_heading, next_pos) = self.bicycle_model(self.steer, self.accel, self.speed, self.heading, self.pos)
+        self.speed = next_speed
+        self.heading = next_heading
+        self.model.space.move_agent(self, next_pos)
 
-            self.speed = next_speed
-            self.heading = next_heading
-            self.model.space.move_agent(self, next_pos)
-
-        if self.unique_id > 0:
-            print("car id: {:3}, step. speed: {:5.1f}, heading: {:5.1f}, pos x: {:5.1f}, pos y: {:5.1f}, steer: {:5.1f}, accel: {:5.1f}".format(
-                 self.unique_id, self.speed, np.degrees(self.heading),  self.pos[0], self.pos[1], np.degrees(self.steer), self.accel))
+        # if self.unique_id > 0:
+        #     print("car id: {:3}, step. speed: {:5.1f}, heading: {:5.1f}, pos x: {:5.1f}, pos y: {:5.1f}, steer: {:5.1f}, accel: {:5.1f}".format(
+        #          self.unique_id, self.speed, np.degrees(self.heading),  self.pos[0], self.pos[1], np.degrees(self.steer), self.accel))
 
 
     def boundary_adj(self, pos):
@@ -256,8 +255,8 @@ class Car(Agent):
         safety_margin = .2
         accuracy = 1
         attention = 1
-        car_width = 12
-        car_length = 100
+        car_width = 5 #12
+        car_length = 25 #100
         v_safe_space = car_length * (1 + safety_margin)
         h_safe_space = car_width * (1 + safety_margin)
 

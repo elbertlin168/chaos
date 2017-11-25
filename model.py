@@ -59,13 +59,13 @@ class ChaosModel(Model):
 
             if i == 0:
                 pos = np.array((250,250))
-                speed = 0
-                target_speed = 0
+                speed = 5
+                target_speed = 5
                 heading = 0
-            else:
+            elif i == 1:
                 pos = np.array((250, 490))
-                speed = 3
-                target_speed = 3
+                speed = 10
+                target_speed = 10
                 heading = np.radians(-90)
 
             # Initialize car
