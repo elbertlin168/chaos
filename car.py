@@ -75,6 +75,7 @@ class Car(Agent):
                  speed, 
                  heading,
                  road_width,
+                 color,
                  target_speed, 
                  target_heading = TARGET_HEADING, 
                  speed_margin=SPEED_MARGIN,
@@ -84,7 +85,7 @@ class Car(Agent):
                  accuracy=ACCURACY, 
                  safety_margin=SAFETY_MARGIN,
                  car_width=CAR_WIDTH, 
-                 car_length=CAR_LENGTH,
+                 car_length=CAR_LENGTH
                  # risk_tolerance=RISK_TOLERANCE, 
                  # attention=ATTENTION,
                  ):
@@ -103,6 +104,8 @@ class Car(Agent):
 
         # Road width. Sets the boundary
         self.road_width = road_width
+
+        self.color = color
 
         # Target speed and heading
         self.target_speed = target_speed

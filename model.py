@@ -55,8 +55,22 @@ class ChaosModel(Model):
             heading = np.radians(-90)
 
             # Random target speed
-            target_speed = util.rand_min_max(3, 8)
-
+            val = random.random()
+            if val < 0.33:
+                target_speed = util.rand_min_max(2, 4)
+                color = "Blue"
+                car_width = util.rand_min_max(8, 9)
+                car_length = util.rand_min_max(35, 45)
+            elif val < 0.66:
+                target_speed = util.rand_min_max(3, 6)
+                color = "Orange"
+                car_width = util.rand_min_max(7, 8)
+                car_length = util.rand_min_max(16, 30)
+            else:
+                target_speed = util.rand_min_max(6, 7)
+                color = "Green"
+                car_width = util.rand_min_max(5, 6)
+                car_length = util.rand_min_max(12, 16)
             # if i == 0:
             #     pos = np.array((250,250))
             #     speed = 5
@@ -67,9 +81,12 @@ class ChaosModel(Model):
             #     speed = 15
             #     target_speed = 15
             #     heading = np.radians(-90)
-
+  
             # Initialize car
-            car = Car(i, self, pos, speed, heading, self.road_width, target_speed)
+            car = Car(i, self, pos, speed, heading, self.road_width, 
+                color, target_speed, car_length=car_length, car_width=car_width)
+
+
             self.cars.append(car)
             self.space.place_agent(car, pos)
             self.schedule.add(car)

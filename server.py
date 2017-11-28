@@ -6,7 +6,11 @@ from SimpleContinuousModule import SimpleCanvas
 canvas_size = 500
 
 def chaos_draw(agent):
-    return {"Shape": "rect", "w": agent.car_width/canvas_size, "h": agent.car_length/canvas_size, "Filled": "true", "Color": "Red"}
+	print(agent.color)	
+	w = agent.car_width/canvas_size
+	h = agent.car_length/canvas_size
+	color = agent.color
+	return {"Shape": "rect", "w": w, "h": h, "Filled": "true", "Color": color}
 
 chaos_canvas = SimpleCanvas(chaos_draw, canvas_size, canvas_size)
 model_params = {
