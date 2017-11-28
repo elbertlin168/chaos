@@ -157,7 +157,7 @@ class Car(Agent):
                 x = rand_center_spread(self.model.space.x_max/2, self.road_width)
                 # y = random.random() * self.space.y_max
                 y = rand_min_max(0, self.model.space.y_max)
-                print(self.pos)
+                # print(self.pos)
                 # self.pos = np.array((x, y))
                 # print(self.pos)
                 print('Could not avoid collision')
@@ -187,8 +187,8 @@ class Car(Agent):
         #     print("action taken: steer {:5.1f} accel{:5.1f}".format(np.degrees(self.steer), self.accel))
 
         (next_speed, next_heading, next_pos) = self.bicycle_model(self.steer, self.accel, self.speed, self.heading, self.pos)
-        print(self.pos)
-        print(next_pos)
+        # print(self.pos)
+        # print(next_pos)
         self.speed = next_speed
         self.heading = next_heading
         self.model.space.move_agent(self, next_pos)
@@ -295,7 +295,9 @@ class Car(Agent):
         y2 = neighbor_pos[1]
 
         colliding = False 
-        if self.collision_overlap(x1, x2, h_safe_space) and self.collision_overlap(y1, y2, v_safe_space):
+        if self.collision_overlap(x1, x2, h_safe_space) and \
+           self.collision_overlap(y1, y2, v_safe_space) and \
+           y1 > y2:
             colliding = True
 
 
