@@ -31,11 +31,11 @@ ACCURACY = 1
 SAFETY_MARGIN = 0.3
 
 # Car dimensions
-CAR_WIDTH = 5 #12
-CAR_LENGTH = 25 #100
+CAR_WIDTH = 10 #5 #12
+CAR_LENGTH = 20 #25 #100
 
 # How far to lookahead for collision avoidance
-LOOKAHEAD = 5
+LOOKAHEAD = 15
 
 # Distance to look for neighbors
 # GET_NEIGHBOR_DIST = 100
