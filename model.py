@@ -7,16 +7,11 @@ from mesa.time import RandomActivation
 
 from car import Car
 
+import util
 
 ROAD_WIDTH = 40
 
-def rand_min_max(a, b):
-    spread = b - a
-    return random.random()*spread + a
 
-def rand_center_spread(center, spread):
-    a = center - spread/2
-    return random.random()*spread + a
 
 class ChaosModel(Model):
     '''
@@ -55,7 +50,7 @@ class ChaosModel(Model):
 
             # Random start position
             # x = random.random() * self.space.x_max/16 + self.space.x_max/2 - self.space.x_max/32
-            x = rand_center_spread(self.space.x_max/2, ROAD_WIDTH)
+            x = util.rand_center_spread(self.space.x_max/2, ROAD_WIDTH)
             # y = random.random() * self.space.y_max
             y = self.space.y_max*i/self.num_adversaries
             pos = np.array((x, y))
@@ -64,11 +59,11 @@ class ChaosModel(Model):
             speed = random.random() * 0
 
             # Random target speed
-            target_speed = rand_min_max(3, 8)
+            target_speed = util.rand_min_max(3, 8)
 
             # Random heading
             # heading = np.radians(random.random()*20 - 90 - 10)
-            heading = np.radians(rand_center_spread(-90, 20))
+            heading = np.radians(util.rand_center_spread(-90, 20))
 
             # if i == 0:
             #     pos = np.array((250,250))

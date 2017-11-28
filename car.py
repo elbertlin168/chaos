@@ -2,46 +2,58 @@ import numpy as np
 import random
 from mesa import Agent
 import math
+import util
 
-def rand_min_max(a, b):
-    spread = b - a
-    return random.random()*spread + a
 
-def rand_center_spread(center, spread):
-    a = center - spread/2
-    return random.random()*spread + a
-
-# Minimum distance from neighbors
-RISK_TOLERANCE = 0.5
-ATTENTION = 0.95
-
-# Desired speed
-TARGET_SPEED = 3
+# Desired heading
+TARGET_HEADING = -np.radians(90)
 
 # Allowed error on speed.
 # Warning: If the margin is too small relative to the
 # accel magnitude it will be unstable
 SPEED_MARGIN = 0.1
 
-# How much accel/brake in each action
-ACCEL_MAG = 0.5
-
-# Desired heading
-TARGET_HEADING = -np.radians(90)
-
 # Allowed error on heading.
 # Warning: If the margin is too small relative to the
 # steer magnitude, it will be unstable
 HEADING_MARGIN = np.radians(1)
 
+# How much accel/brake in each action
+ACCEL_MAG = 0.5
+
 # How much steering in each action
 STEER_MAG = np.radians(3)
 
-# Lookahead
-LOOKAHEAD = 30
+# Accuracy in propagation during collision detection
+ACCURACY = 1
 
+# Safety buffer around car dimensions in collision detection
+SAFETY_MARGIN = 0.3
+
+# Car dimensions
+CAR_WIDTH = 5 #12
+CAR_LENGTH = 25 #100
+
+# How far to lookahead for collision avoidance
+LOOKAHEAD = 5
+
+# Distance to look for neighbors
 GET_NEIGHBOR_DIST = 50
 
+# Enumerate code for collide front and back
+COLLIDE_FRONT = 1
+COLLIDE_BACK = 2
+
+# How much to prefer left turns over right turns. 
+# If 1.0 then left turn will always be attempted first and
+# right turn only performed if left results in collision
+# If 0.5 then half the time a left turn will be tried first
+# and half the time right turn will be tried first
+LEFT_TURN_PREFERENCE = 0.5
+
+# Minimum distance from neighbors
+# RISK_TOLERANCE = 0.5
+# ATTENTION = 0.95
 
 def wrap_angle(angles):
    '''
@@ -53,25 +65,66 @@ class Car(Agent):
     '''
     '''
 
-    def __init__(self, unique_id, model, pos, speed, heading,
-                 risk_tolerance=RISK_TOLERANCE, attention=ATTENTION,
-                 target_speed=TARGET_SPEED, speed_margin=SPEED_MARGIN,
-                 accel_mag=ACCEL_MAG, heading_margin=HEADING_MARGIN,
-                 steer_mag=STEER_MAG, road_width=100):
+    def __init__(self, 
+                 unique_id, 
+                 model, 
+                 pos, 
+                 speed, 
+                 heading,
+                 road_width,
+                 target_speed, 
+                 target_heading = TARGET_HEADING, 
+                 speed_margin=SPEED_MARGIN,
+                 heading_margin=HEADING_MARGIN, 
+                 accel_mag=ACCEL_MAG, 
+                 steer_mag=STEER_MAG, 
+                 accuracy=ACCURACY, 
+                 safety_margin=SAFETY_MARGIN,
+                 car_width=CAR_WIDTH, 
+                 car_length=CAR_LENGTH,
+                 # risk_tolerance=RISK_TOLERANCE, 
+                 # attention=ATTENTION,
+                 ):
         '''
         '''
         super().__init__(unique_id, model)
+
+        # Initial position
         self.pos = np.array(pos)
+
+        # Initial speed
         self.speed = speed
+
+        # Initial heading
         self.heading = heading
-        self.risk_tolerance = risk_tolerance
-        self.attention = attention
-        self.target_speed = target_speed
-        self.speed_margin = speed_margin
-        self.accel_mag = accel_mag
-        self.heading_margin = heading_margin
-        self.steer_mag = steer_mag
+
+        # Road width. Sets the boundary
         self.road_width = road_width
+
+        # Target speed and heading
+        self.target_speed = target_speed
+        self.target_heading = target_heading
+
+        # Speed and heading margin
+        self.speed_margin = speed_margin
+        self.heading_margin = heading_margin
+
+        # Steer/accel magnitudes
+        self.accel_mag = accel_mag
+        self.steer_mag = steer_mag
+
+        # accuracy of state propagation in collision detection
+        self.accuracy = accuracy
+
+        # margin for collision avoidance
+        self.safety_margin = safety_margin
+
+        # Size of car for collision detection
+        self.car_width = car_width
+        self.car_length = car_length
+
+        # self.risk_tolerance = risk_tolerance
+        # self.attention = attention
 
         # Initialize the bicycle model
         # These constants can be varied if we want to change
@@ -80,167 +133,212 @@ class Car(Agent):
         self.lf = 1
 
         # Initialize inputs to 0
-        self.accel = 0 # longitudinal acceleration effects speed directly
-        # steering angle in radians controls the angular velocity
-        # via the bicycle model kinematics
+
+          # longitudinal acceleration effects speed directly
+        self.accel = 0 
+
+          # steering angle in radians controls the angular velocity
+          # via the bicycle model kinematics
         self.steer = 0
 
-    def choose_action(self):
-        '''
-        '''
-        # Speed control
+
+    def speed_control(self):
+        # Steers and accels represent a sequence of actions over the next 
+        # N steps. N is controlled by LOOKAHEAD. 
+        # Initialize these vectors with 0
+        accels = np.zeros(LOOKAHEAD)
+
         speed_error = self.speed - self.target_speed
         if speed_error < -self.speed_margin:
-            accel = self.accelerate()
+            accels[0] = self.accelerate()
         elif speed_error > self.speed_margin:
-            accel = self.brake()
+            accels[0] = self.brake()
         else:
-            accel = self.maintain_speed()
+            accels[0] = self.maintain_speed()
 
+        return accels
 
-        # Heading control
+    def heading_control(self):
+        # Steers and accels represent a sequence of actions over the next 
+        # N steps. N is controlled by LOOKAHEAD. 
+        # Initialize these vectors with 0
+        steers = np.zeros(LOOKAHEAD)
+        accels = np.zeros(LOOKAHEAD)
+
         heading_error = wrap_angle(self.heading - TARGET_HEADING)
 
         if heading_error < -self.heading_margin:
-            steer = self.turn_left()
+            steers[0] = self.turn_left()
         elif heading_error > self.heading_margin:
-            steer = self.turn_right()
+            steers[0] = self.turn_right()
         else:
-            steer = self.go_straight()
+            steers[0] = self.go_straight()
 
-        # print('car id: {}, heading err: {:4.2f}, speed err: {:4.2f}, accel: {:4.2f}, steer: {:4.2f}'.format(
-        #     self.unique_id, np.degrees(heading_error), speed_error, self.accel, np.degrees(self.steer)))
+        return steers
 
-        # Run bicycle model
+    def avoid_collision(self, collision_detection):
+
+        # Enumerate speed actions in priority order
+        speed_actions = [self.maintain_speed, self.accelerate, self.brake]
+
+        # Enumerate heading actions in priority order. 
+        # In order to not prioritize left or right use a random number 
+        # to choose which one to try first. 
+        if random.random() > LEFT_TURN_PREFERENCE:
+            heading_actions = [self.turn_left, self.turn_right, self.go_straight]
+        else: 
+            heading_actions = [self.turn_right, self.turn_left, self.go_straight]
+
+        # Try all combinations of speed and heading actions    
+        for sa in speed_actions:
+            for ha in heading_actions:
+
+                # Steers and accels represent a sequence of actions over the next 
+                # N steps. N is controlled by LOOKAHEAD. 
+                # Initialize these vectors with 0
+                steers = np.zeros(LOOKAHEAD)
+                accels = np.zeros(LOOKAHEAD)
+
+                # Try applying action between 1 and N times
+                # in the action sequence
+                for i in range(0, LOOKAHEAD):
+
+                    # Add steering and acceleration actions
+                    # to the action vectors 
+                    steers[i] = sa()
+                    accels[i] = ha()
+
+                    # If action sequence no longer results in collision
+                    # then return the actions for the first step
+                    if self.collision_lookahead(steers, accels) == 0:
+                        return (steers, accels)
+
+        # If all possible actions are exhausted then return None
+        print('Could not avoid collision')
+        return self.resolve_collision(collision_detection)
+
+    def resolve_collision(self, collision_detection):
+        # Steers and accels represent a sequence of actions over the next 
+        # N steps. N is controlled by LOOKAHEAD. 
+        # Initialize these vectors with 0
         steers = np.zeros(LOOKAHEAD)
         accels = np.zeros(LOOKAHEAD)
-        steers[0] = steer
-        accels[0] = accel
 
-        # Enforce space boundaries
-        # next_pos = self.boundary_adj(next_pos)
-        # Take action if no collision
-        # if self.unique_id > 0:
-        #     print("car id: {:3}, cact. speed: {:5.1f}, heading: {:5.1f}, pos x: {:5.1f}, pos y: {:5.1f}, steer: {:5.1f}, accel: {:5.1f}".format(
-        #          self.unique_id, self.speed, np.degrees(self.heading),  self.pos[0], self.pos[1], np.degrees(self.steer), self.accel))
+        # When collision is unavoidable just go straight
+        # And accel or decel based on whether you are
+        # the front or back car in the collision
+        steers[0] = self.go_straight()
+        if collision_detection == COLLIDE_FRONT:
+            accels[0] = self.brake()
+        if collision_detection == COLLIDE_BACK:
+            accels[0] = self.accelerate()
 
-        # if self.unique_id > 0:
-            # print("first collision check")
-        if self.collision_look_ahead(steers, accels):
-            collide = True
-            # if self.unique_id > 0:
-            #     print('collision on first check')
-            speed_actions = [self.maintain_speed, self.accelerate, self.brake]
-            if random.random() > 0.5:
-                heading_actions = [self.turn_left, self.turn_right, self.go_straight]
-            else: 
-                heading_actions = [self.turn_right, self.turn_left, self.go_straight]
-            for sa in speed_actions:
-                for ha in heading_actions:
-                    accel = sa()
-                    steer = ha()
-                    steers.fill(steer)
-                    accels.fill(accel)
-                    # if self.unique_id > 0:
-                    #     print("try: steer {:5.1f} accel{:5.1f}".format(np.degrees(steer), accel))
-                    # (next_speed, next_heading, next_pos) = self.bicycle_model()
-                    # next_pos = self.boundary_adj(next_pos)
-                    if not self.collision_look_ahead(steers, accels):
-                        # if self.unique_id > 0:
-                        #     print("action chosen: steer {:5.1f} accel{:5.1f}".format(np.degrees(steer), accel))
-                        collide = False
-                        break
-                if not collide:
-                    break
+        return (steers, accels)
 
-            if collide:
-                x = rand_center_spread(self.model.space.x_max/2, self.road_width)
-                # y = random.random() * self.space.y_max
-                y = rand_min_max(0, self.model.space.y_max)
-                # print(self.pos)
-                # self.pos = np.array((x, y))
-                # print(self.pos)
-                print('Could not avoid collision')
 
-        # if self.unique_id > 0:
-        #     print("action at end of choose action: steer {:5.1f} accel{:5.1f}".format(np.degrees(steer), accel))
+    def choose_action(self):
+        '''
+        Assigns steer and accel values to try and meet target 
+        heading and speed. 
+        If a collision is detetected, tries to choose action
+        to avoid collision
+        '''
+ 
+        # Choose accel and steer to aim for target speed and heading
+        # Do this action only for the first step in the sequence
+        steers = self.heading_control()
+        accels = self.speed_control()
 
-        self.steer = steer
-        self.accel = accel
-        # When this loop completes the steer and accel fields will have
-        # been set based on the chosen action
+        # If a collision is detected
+        collision_detection = self.collision_lookahead(steers, accels)
+        if collision_detection > 0:
+            (steers, accels) = self.avoid_collision(collision_detection)
 
-        # self.speed = next_speed
-        # self.heading = next_heading
-
-        # collision = self.collision(next_pos)
-        # if not collision:
-        #     self.model.space.move_agent(self, next_pos)
-        #     self.speed = next_speed
-        #     self.heading = next_heading
-        # else:
-        #     print('{} Collision!', self.unique_id)
+        # Assign action to object
+        self.steer = steers[0]
+        self.accel = accels[0]
 
 
     def step(self):
-        # if self.unique_id > 0:
-        #     print("action taken: steer {:5.1f} accel{:5.1f}".format(np.degrees(self.steer), self.accel))
+        '''
+        Uses chosen actions (steer and accel) to propagate state 
+        (pos, speed, heading) with the bicycle model. 
+        '''
 
-        (next_speed, next_heading, next_pos) = self.bicycle_model(self.steer, self.accel, self.speed, self.heading, self.pos)
-        # print(self.pos)
-        # print(next_pos)
-        self.speed = next_speed
-        self.heading = next_heading
+        # Propagate state
+        (self.speed, self.heading, next_pos) = self.bicycle_model( \
+            self.steer, self.accel, self.speed, self.heading, self.pos)
+
+        # Move agent
         self.model.space.move_agent(self, next_pos)
 
-        # if self.unique_id > 0:
-        #     print("car id: {:3}, step. speed: {:5.1f}, heading: {:5.1f}, pos x: {:5.1f}, pos y: {:5.1f}, steer: {:5.1f}, accel: {:5.1f}".format(
-        #          self.unique_id, self.speed, np.degrees(self.heading),  self.pos[0], self.pos[1], np.degrees(self.steer), self.accel))
 
+    def collision_lookahead(self, steers, accels):
+        '''
+        Function to detect a collision given a vector of 
+        steering and acceleration actions.
 
-    def boundary_adj(self, pos):
-        space = self.model.space
+        Propagates self and neighbors forward using bicycle model. 
+        If any step in the propagation has a collision returns a
+        nonzero value.
+        '''
 
-        xmin = space.x_max/2 - self.road_width/2
-        xmax = space.x_max/2 + self.road_width/2
+        # Get neighbors
+        neighbors = self.model.space.get_neighbors(self.pos, GET_NEIGHBOR_DIST, False)
 
-        x = min(max(pos[0], xmin), xmax - 1e-8)
-        y = space.y_min + ((pos[1] - space.y_min) % space.height)
-        if isinstance(pos, tuple):
-            return (x, y)
-        else:
-            return np.array((x, y))
+        # If no neighbors, return 0
+        if len(neighbors) == 0:
+            return 0
 
+        # Propagate self forward using action vectors
+        new_pos_list = self.bicycle_lookahead(steers, accels, self.accuracy)
 
-    def collision_look_ahead(self, steers, accels):
-        accuracy = 1
-        new_pos_list = self.bicycle_lookahead(steers, accels, 1)
-
+        # Assume neighbors take no actions
         no_actions = np.zeros(len(steers))
 
-        neighbors = self.model.space.get_neighbors(self.pos, GET_NEIGHBOR_DIST, False)
-        # if self.unique_id > 0:
-            # print("N neighbors:{}".format(len(neighbors)))
-        colliding = False
+        # Check all neighbors
         for neighbor in neighbors:
-            # print(self.model.space.get_distance(self.pos, neighbor.pos))
-            neighbor_pos_list = neighbor.bicycle_lookahead(no_actions, no_actions, accuracy)
-            for new_pos, neighbor_pos in zip(new_pos_list, neighbor_pos_list):
-                if self.collision(new_pos, neighbor_pos):
-                    return True
 
-        return False
+            # Propagate neighbor forward
+            neighbor_pos_list = neighbor.bicycle_lookahead( \
+                no_actions, no_actions, self.accuracy)
+
+            collision_status = self.collision(new_pos_list, neighbor, neighbor_pos_list)
+
+            # Check each step in propagation for a collision
+            if collision_status > 0:
+                return collision_status
+
+        return 0
 
 
     def bicycle_lookahead(self, steers, accels, accuracy):
+        '''
+        Propagate state using bicycle model and action vectors
+        steers and accels. 
+
+        Returns an array of positions  
+        '''
+
+        # Initialize with current speed, heading, position
         speed = self.speed
         heading = self.heading
         pos = self.pos
-        future_pos = []
-        for steer, accel in np.c_[steers, accels]:
-            (next_speed, next_heading, next_pos) = self.bicycle_model_acc(steer, accel, speed, heading, pos, accuracy)
 
+        # Initialize empty list to hold propagated position vector
+        future_pos = []
+
+        # Loop through action vectors and apply bicyle model
+        for steer, accel in np.c_[steers, accels]:
+
+            # Propagate forward
+            (next_speed, next_heading, next_pos) = self.bicycle_model_acc( \
+                steer, accel, speed, heading, pos, accuracy)
+
+            # Keep track of position
             future_pos.append(next_pos)
+
+            # Go to next step
             speed = next_speed
             heading = next_heading
             pos = next_pos
@@ -248,86 +346,36 @@ class Car(Agent):
         return np.array(future_pos)
      
 
+    def collision(self, new_pos_list, neighbor, neighbor_pos_list):
+        '''
+        Check for a collision. If there is one indicate
+        whether self is the front or back car in the collision
+        '''
+
+
+        v_safe_space = (self.car_length + neighbor.car_length) * \
+                        (1 + self.safety_margin) / 2
+        h_safe_space = (self.car_width + neighbor.car_width) * \
+                        (1 + self.safety_margin) / 2
+
+        # Check each step in the position list
+        for new_pos, neighbor_pos in zip(new_pos_list, neighbor_pos_list):
+            if self.collision_overlap(new_pos[0], \
+                                      neighbor_pos[0], \
+                                      h_safe_space) \
+               and \
+               self.collision_overlap(new_pos[1], \
+                                      neighbor_pos[1], \
+                                      v_safe_space):
+               if new_pos[1] > neighbor_pos[1]: 
+                    return COLLIDE_FRONT
+               else:
+                    return COLLIDE_BACK
+
+        return 0
+
     def collision_overlap(self, x1, x2, margin):
-        
-        distance = abs(x2 - x1)  - margin
-
-        # if self.unique_id > 0:
-        #     print("x1: {:5.1f} x2: {:5.1f} margin: {:5.1f}, distance {:5.1f}".format(
-        #         x1, x2, margin, distance))
-
-        return distance < 0
-
-    # def vertically_aligned(self, y1, y2, car_length):
-    #     front_car = max(y1, y2)
-    #     back_car = min(y1, y2)
-    #     fcar_bside = front_car - car_length * 0.5
-    #     bcar_fside = back_car + car_length * 0.5
-
-    #     if self.unique_id > 0:
-    #         print("x1: {:5.1f} y1: {:5.1f} x2: {:5.1f} y2: {:5.1f}, distance {:5.1f}".format(
-    #             x1, y1, x2, y2, distance))
-
-    #     return fcar_bside <= bcar_fside
-
-    # def hcheck():
-    #             if y2 < y1 and self.horizontally_aligned(x1, x2, car_width) and \
-    #     (y1 - car_length * 0.5) - (y2 + car_length * 0.5) <= v_safe_space:
-    #         colliding = True
-
-    # def vcheck():
-    #             if self.vertically_aligned(y1, y2, car_length) and \
-    #     ((x2 - car_width * 0.5) - (x1 + car_width * 0.5) <= h_safe_space \
-    #     or (x1 - car_width * 0.5) - (x2 + car_width * 0.5) <= h_safe_space):
-
-    def collision(self, new_pos, neighbor_pos):
-        safety_margin = .3
-        accuracy = 1
-        attention = 1
-        car_width = 5 #12
-        car_length = 25 #100
-        v_safe_space = car_length * (1 + safety_margin)
-        h_safe_space = car_width * (1 + safety_margin)
-
-        x1 = new_pos[0]
-        x2 = neighbor_pos[0]
-        y1 = new_pos[1]
-        y2 = neighbor_pos[1]
-
-        colliding = False 
-        if self.collision_overlap(x1, x2, h_safe_space) and \
-           self.collision_overlap(y1, y2, v_safe_space) and \
-           y1 > y2:
-            colliding = True
-
-
-
-
-        # if self.unique_id > 0:
-        #     print("x1: {:5.1f} y1: {:5.1f} x2: {:5.1f} y2: {:5.1f}, haligned: {}, valigned: {}, dy {:5.1f}, safespace {:5.1f}".format(
-        #         x1, y1, x2, y2, self.horizontally_aligned(x1, x2, car_width), 
-        #         self.vertically_aligned(y1, y2, car_length), (y1 - car_length * 0.5) - (y2 + car_length * 0.5), 
-        #         v_safe_space))
-
-        # colliding = False
-        # if y2 < y1 and self.horizontally_aligned(x1, x2, car_width) and \
-        # (y1 - car_length * 0.5) - (y2 + car_length * 0.5) <= v_safe_space:
-        #     colliding = True
-
-        # if self.vertically_aligned(y1, y2, car_length) and \
-        # ((x2 - car_width * 0.5) - (x1 + car_width * 0.5) <= h_safe_space \
-        # or (x1 - car_width * 0.5) - (x2 + car_width * 0.5) <= h_safe_space):
-        #     colliding = True
-
-        # if self.unique_id > 0:
-        #     print("collision? {}".format(colliding) )
-
-        # if random.random() > self.attention:
-            # colliding = not colliding
-
-        # if self.unique_id > 0:
-            # print("collision summary? {}".format(colliding) )
-        return colliding
+        return abs(x2 - x1)  - margin < 0
 
     def maintain_speed(self):
         return 0
@@ -387,6 +435,7 @@ class Car(Agent):
 
         next_pos = pos + np.array((delta_x, delta_y))
 
+        # Enforce boundary constraints
         next_pos = self.boundary_adj(next_pos)
 
         # print("car id: {}, sideslip: {:4.2f}, speed: {:4.2f}, heading: {:4.2f}, dx: {:4.2f}, dy: {:4.2f}, old pos x: {:4.2f}, old pos y: {:4.2f}, new pos x: {:4.2f}, new pos y: {:4.2f}".format(
@@ -397,3 +446,22 @@ class Car(Agent):
 
     def bicycle_model(self, steer, accel, speed, heading, pos):
         return self.bicycle_model_acc(steer, accel, speed, heading, pos, 1)
+
+
+    def boundary_adj(self, pos):
+        '''
+        Do not allow position to exceed boundaries
+        '''
+
+        space = self.model.space
+
+        xmin = space.x_max/2 - self.road_width/2
+        xmax = space.x_max/2 + self.road_width/2
+
+        x = min(max(pos[0], xmin), xmax - 1e-8)
+        y = space.y_min + ((pos[1] - space.y_min) % space.height)
+        if isinstance(pos, tuple):
+            return (x, y)
+        else:
+            return np.array((x, y))
+
