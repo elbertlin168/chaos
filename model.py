@@ -9,25 +9,18 @@ from car import Car
 
 import util
 
-ROAD_WIDTH = 40
-
-
-
 class ChaosModel(Model):
     '''
     '''
 
-    def __init__(self, lanes=5, num_adversaries=50, max_speed=30):
+    def __init__(self, canvas_size=500, num_adversaries=50, road_width=40):
         '''
         '''
-        self.lanes = lanes
         self.num_adversaries = num_adversaries
-        self.max_speed = max_speed
+        self.road_width = road_width
         self.schedule = RandomActivation(self)
 
-        # self.space = ContinuousSpace(lanes * 4, 500, True)
-        # Just make space square since the display is square
-        self.space = ContinuousSpace(500, 500, True)
+        self.space = ContinuousSpace(canvas_size, canvas_size, True)
         self.cars = []
 
         self.make_agents()
@@ -49,21 +42,20 @@ class ChaosModel(Model):
         for i in range(self.num_adversaries):
 
             # Random start position
-            # x = random.random() * self.space.x_max/16 + self.space.x_max/2 - self.space.x_max/32
-            x = util.rand_center_spread(self.space.x_max/2, ROAD_WIDTH)
-            # y = random.random() * self.space.y_max
+            x = util.rand_center_spread(self.space.x_max/2, self.road_width)
+
+            # Space out start positions in y coordinate so agents don't overlap
+            # at initialization
             y = self.space.y_max*i/self.num_adversaries
+
             pos = np.array((x, y))
 
-            # Random speed
-            speed = random.random() * 0
+            # Initial speed and heading
+            speed = 0
+            heading = np.radians(-90)
 
             # Random target speed
             target_speed = util.rand_min_max(3, 8)
-
-            # Random heading
-            # heading = np.radians(random.random()*20 - 90 - 10)
-            heading = np.radians(util.rand_center_spread(-90, 20))
 
             # if i == 0:
             #     pos = np.array((250,250))
@@ -76,29 +68,20 @@ class ChaosModel(Model):
             #     target_speed = 15
             #     heading = np.radians(-90)
 
-
-            # if i == 0:
-            #     pos = np.array((250,450))
-            #     speed = 15
-            #     target_speed = 15
-            #     heading = np.radians(-90)
-
             # Initialize car
-            car = Car(i, self, pos, speed, heading, target_speed=target_speed, road_width = ROAD_WIDTH)
+            car = Car(i, self, pos, speed, heading, self.road_width, target_speed)
             self.cars.append(car)
             self.space.place_agent(car, pos)
             self.schedule.add(car)
 
-            # while (car.collision_look_ahead(self, [0], [0])):
-            #     x = random.random() * self.space.x_max/16 + self.space.x_max/2 - self.space.x_max/32
-            #     y = random.random() * self.space.y_max
-            #     pos = np.array((x, y))
-
 
     def step(self):
+        # First loop through and have all cars choose an action
+        # before the action is actually propagated forward
         for car in self.cars:
             car.choose_action()
 
+        # Propagate forward one step based on chosen actions
         self.schedule.step()
 
 
