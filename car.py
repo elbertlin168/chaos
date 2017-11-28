@@ -38,7 +38,7 @@ CAR_LENGTH = 25 #100
 LOOKAHEAD = 5
 
 # Distance to look for neighbors
-GET_NEIGHBOR_DIST = 50
+# GET_NEIGHBOR_DIST = 100
 
 # Enumerate code for collide front and back
 COLLIDE_FRONT = 1
@@ -50,6 +50,9 @@ COLLIDE_BACK = 2
 # If 0.5 then half the time a left turn will be tried first
 # and half the time right turn will be tried first
 LEFT_TURN_PREFERENCE = 0.5
+
+# Minimum allowed speed in bicycle model
+MIN_SPEED = 0 
 
 # Minimum distance from neighbors
 # RISK_TOLERANCE = 0.5
@@ -142,6 +145,50 @@ class Car(Agent):
         self.steer = 0
 
 
+    def choose_action(self):
+        '''
+        Assigns steer and accel values to try and meet target 
+        heading and speed. 
+        If a collision is detetected, tries to choose action
+        to avoid collision
+        '''
+ 
+        # Choose accel and steer to aim for target speed and heading
+        # Do this action only for the first step in the sequence
+        steers = self.heading_control()
+        accels = self.speed_control()
+
+        # If a collision is detected
+        collision_detection = self.collision_lookahead(steers, accels)
+        if (collision_detection == COLLIDE_BACK) or \
+        (collision_detection == COLLIDE_FRONT and steers[0] != 0):
+            print("id: {} collision: {}".format(
+                    self.unique_id, collision_detection))
+
+            (steers, accels) = self.avoid_collision(collision_detection)
+
+        # Assign action to object
+        self.steer = steers[0]
+        self.accel = accels[0]
+
+
+    def step(self):
+        '''
+        Uses chosen actions (steer and accel) to propagate state 
+        (pos, speed, heading) with the bicycle model. 
+        '''
+
+        # Propagate state
+        (self.speed, self.heading, next_pos) = self.bicycle_model( \
+            self.steer, self.accel, self.speed, self.heading, self.pos)
+
+        # Move agent
+        self.model.space.move_agent(self, next_pos)
+
+        # print("id: {} steer: {} accel: {} speed: {} heading {}".format(
+        #     self.unique_id, self.steer, self.accel, self.speed,
+        #     np.degrees(self.heading)))
+
     def speed_control(self):
         # Steers and accels represent a sequence of actions over the next 
         # N steps. N is controlled by LOOKAHEAD. 
@@ -178,20 +225,21 @@ class Car(Agent):
 
     def avoid_collision(self, collision_detection):
 
-        # Enumerate speed actions in priority order
-        speed_actions = [self.maintain_speed, self.accelerate, self.brake]
-
         # Enumerate heading actions in priority order. 
         # In order to not prioritize left or right use a random number 
         # to choose which one to try first. 
         if random.random() > LEFT_TURN_PREFERENCE:
-            heading_actions = [self.turn_left, self.turn_right, self.go_straight]
+            steer_actions = [self.turn_left(), self.turn_right(), self.go_straight()]
         else: 
-            heading_actions = [self.turn_right, self.turn_left, self.go_straight]
+            steer_actions = [self.turn_right(), self.turn_left(), self.go_straight()]
+
+        # Enumerate speed actions in priority order
+        accel_actions = [self.maintain_speed(), self.accelerate(), self.brake()]
+
 
         # Try all combinations of speed and heading actions    
-        for sa in speed_actions:
-            for ha in heading_actions:
+        for steer in steer_actions:
+            for accel in accel_actions:
 
                 # Steers and accels represent a sequence of actions over the next 
                 # N steps. N is controlled by LOOKAHEAD. 
@@ -205,8 +253,8 @@ class Car(Agent):
 
                     # Add steering and acceleration actions
                     # to the action vectors 
-                    steers[i] = sa()
-                    accels[i] = ha()
+                    steers[i] = steer
+                    accels[i] = accel
 
                     # If action sequence no longer results in collision
                     # then return the actions for the first step
@@ -236,43 +284,6 @@ class Car(Agent):
         return (steers, accels)
 
 
-    def choose_action(self):
-        '''
-        Assigns steer and accel values to try and meet target 
-        heading and speed. 
-        If a collision is detetected, tries to choose action
-        to avoid collision
-        '''
- 
-        # Choose accel and steer to aim for target speed and heading
-        # Do this action only for the first step in the sequence
-        steers = self.heading_control()
-        accels = self.speed_control()
-
-        # If a collision is detected
-        collision_detection = self.collision_lookahead(steers, accels)
-        if collision_detection > 0:
-            (steers, accels) = self.avoid_collision(collision_detection)
-
-        # Assign action to object
-        self.steer = steers[0]
-        self.accel = accels[0]
-
-
-    def step(self):
-        '''
-        Uses chosen actions (steer and accel) to propagate state 
-        (pos, speed, heading) with the bicycle model. 
-        '''
-
-        # Propagate state
-        (self.speed, self.heading, next_pos) = self.bicycle_model( \
-            self.steer, self.accel, self.speed, self.heading, self.pos)
-
-        # Move agent
-        self.model.space.move_agent(self, next_pos)
-
-
     def collision_lookahead(self, steers, accels):
         '''
         Function to detect a collision given a vector of 
@@ -284,8 +295,11 @@ class Car(Agent):
         '''
 
         # Get neighbors
-        neighbors = self.model.space.get_neighbors(self.pos, GET_NEIGHBOR_DIST, False)
+        # neighbors = self.model.space.get_neighbors(self.pos, GET_NEIGHBOR_DIST, False)
+        neighbors = self.get_neighbors()
 
+
+        # print("# neighbors: {}".format(len(neighbors)))
         # If no neighbors, return 0
         if len(neighbors) == 0:
             return 0
@@ -311,6 +325,13 @@ class Car(Agent):
 
         return 0
 
+    def get_neighbors(self):
+        neighbors = []
+        for car in self.model.cars:
+            if car.unique_id != self.unique_id:
+                neighbors.append(car)
+
+        return neighbors
 
     def bicycle_lookahead(self, steers, accels, accuracy):
         '''
@@ -368,9 +389,9 @@ class Car(Agent):
                                       neighbor_pos[1], \
                                       v_safe_space):
                if new_pos[1] > neighbor_pos[1]: 
-                    return COLLIDE_FRONT
-               else:
                     return COLLIDE_BACK
+               else:
+                    return COLLIDE_FRONT
 
         return 0
 
@@ -413,8 +434,8 @@ class Car(Agent):
 
         # Speed
         next_speed = speed + accel
-        if next_speed < 1:
-            next_speed = 1
+        if next_speed < MIN_SPEED:
+            next_speed = MIN_SPEED
 
         # Heading
         # delta_heading = v*sin(B)/lr
