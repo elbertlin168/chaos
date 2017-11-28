@@ -6,6 +6,7 @@ from mesa.space import ContinuousSpace
 from mesa.time import RandomActivation
 
 from car import Car
+from barrier import Barrier
 
 import util
 
@@ -13,7 +14,7 @@ class ChaosModel(Model):
     '''
     '''
 
-    def __init__(self, canvas_size=500, num_adversaries=50, road_width=40):
+    def __init__(self, canvas_size=500, num_adversaries=8, road_width=60):
         '''
         '''
         self.num_adversaries = num_adversaries
@@ -23,7 +24,7 @@ class ChaosModel(Model):
         self.space = ContinuousSpace(canvas_size, canvas_size, True)
         self.cars = []
 
-        self.make_agents()
+        self.make_agents(canvas_size)
         self.running = True
 
 
@@ -36,17 +37,17 @@ class ChaosModel(Model):
         collision_cost = collided * -50000
         return speed_reward + speed_cost + risk_cost + collision_cost
 
-    def make_agents(self):
+    def make_agents(self, canvas_size):
         '''
         '''
-        for i in range(self.num_adversaries):
+        for i in range(self.num_adversaries + 1):
 
             # Random start position
             x = util.rand_center_spread(self.space.x_max/2, self.road_width)
 
             # Space out start positions in y coordinate so agents don't overlap
             # at initialization
-            y = self.space.y_max*i/self.num_adversaries
+            y = self.space.y_max*i/(self.num_adversaries + 1)
 
             pos = np.array((x, y))
 
@@ -71,6 +72,13 @@ class ChaosModel(Model):
                 color = "Green"
                 car_width = util.rand_min_max(5, 6)
                 car_length = util.rand_min_max(12, 16)
+
+            if i == 0:
+                target_speed = 10
+                color = "Black"
+                car_width = 6
+                car_length = 12
+
             # if i == 0:
             #     pos = np.array((250,250))
             #     speed = 5
@@ -90,6 +98,33 @@ class ChaosModel(Model):
             self.cars.append(car)
             self.space.place_agent(car, pos)
             self.schedule.add(car)
+
+
+
+        # Barrier
+        color = "Black"
+        car_width = 1
+        car_length = canvas_size
+        y = self.space.y_max/2
+
+
+        x = self.space.x_max/2 + self.road_width
+        pos = np.array((x, y))
+
+        barrier = Barrier(i, self, pos, 
+            color, car_length=car_length, car_width=car_width)
+
+        self.space.place_agent(barrier, pos)
+        self.schedule.add(barrier)
+
+        x = self.space.x_max/2 - self.road_width
+        pos = np.array((x, y))
+
+        barrier = Barrier(i, self, pos, 
+            color, car_length=car_length, car_width=car_width)
+
+        self.space.place_agent(barrier, pos)
+        self.schedule.add(barrier)
 
 
     def step(self):

@@ -15,7 +15,7 @@ chaos_canvas = SimpleCanvas(chaos_draw, canvas_size, canvas_size)
 model_params = {
     "canvas_size": canvas_size,
     "num_adversaries": 8,
-    "road_width": 40,
+    "road_width": 60,
 }
 
 server = ModularServer(ChaosModel, [chaos_canvas], "Chaos", model_params)
