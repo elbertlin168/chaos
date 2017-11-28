@@ -6,7 +6,6 @@ from SimpleContinuousModule import SimpleCanvas
 canvas_size = 500
 
 def chaos_draw(agent):
-	print(agent.color)	
 	w = agent.car_width/canvas_size
 	h = agent.car_length/canvas_size
 	color = agent.color

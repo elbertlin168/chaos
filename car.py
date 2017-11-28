@@ -105,6 +105,8 @@ class Car(Agent):
         # Road width. Sets the boundary
         self.road_width = road_width
 
+        # Set orig color
+        self.orig_color = color
         self.color = color
 
         # Target speed and heading
@@ -156,6 +158,9 @@ class Car(Agent):
         to avoid collision
         '''
  
+        # Reset color
+        self.color = self.orig_color
+
         # Choose accel and steer to aim for target speed and heading
         # Do this action only for the first step in the sequence
         steers = self.heading_control()
@@ -165,8 +170,8 @@ class Car(Agent):
         collision_detection = self.collision_lookahead(steers, accels)
         if (collision_detection == COLLIDE_BACK) or \
         (collision_detection == COLLIDE_FRONT and steers[0] != 0):
-            print("id: {} collision: {}".format(
-                    self.unique_id, collision_detection))
+            # print("id: {} collision: {}".format(
+            #         self.unique_id, collision_detection))
 
             (steers, accels) = self.avoid_collision(collision_detection)
 
@@ -283,6 +288,9 @@ class Car(Agent):
             accels[0] = self.brake()
         if collision_detection == COLLIDE_BACK:
             accels[0] = self.accelerate()
+
+        # Indicate collision
+        self.color = "Red"
 
         return (steers, accels)
 
