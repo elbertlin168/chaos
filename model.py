@@ -24,6 +24,7 @@ class ChaosModel(Model):
 
         self.space = ContinuousSpace(canvas_size, canvas_size, True)
         self.cars = []
+        self.agent = []
 
         self.make_agents(canvas_size)
         self.running = True
@@ -97,7 +98,7 @@ class ChaosModel(Model):
             self.schedule.add(car)
 
         # Qcar
-        pos = np.array((self.space.x_max/2, self.space.y_max))
+        pos = np.array((self.space.x_max/2, self.space.y_max-1))
         speed = 0
         heading = np.radians(-90)
         target_speed = 10
@@ -106,6 +107,7 @@ class ChaosModel(Model):
         car_length = 12
         qcar = QCar(i, self, pos, speed, heading, self.road_width, 
             color, target_speed, car_length=car_length, car_width=car_width)
+        self.agent = qcar
         self.cars.append(qcar)
         self.space.place_agent(qcar, pos)
         self.schedule.add(qcar)
