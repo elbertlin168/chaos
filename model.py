@@ -28,15 +28,6 @@ class ChaosModel(Model):
         self.running = True
 
 
-    def reward(self, current_speed, risk, collided):
-        speed_reward = (current_speed < max_speed * 1.1) * \
-                        (1.0 * current_speed / self.max_speed) * 500
-        speed_cost = - (current_speed > max_speed * 1.1) * \
-                        (1.0 * current_speed / self.max_speed) * 800
-        risk_cost = -risk * 200
-        collision_cost = collided * -50000
-        return speed_reward + speed_cost + risk_cost + collision_cost
-
     def make_agents(self, canvas_size):
         '''
         '''
@@ -89,9 +80,9 @@ class ChaosModel(Model):
             #     speed = 15
             #     target_speed = 15
             #     heading = np.radians(-90)
-  
+
             # Initialize car
-            car = Car(i, self, pos, speed, heading, self.road_width, 
+            car = Car(i, self, pos, speed, heading, self.road_width,
                 color, target_speed, car_length=car_length, car_width=car_width)
 
 
@@ -111,7 +102,7 @@ class ChaosModel(Model):
         x = self.space.x_max/2 + self.road_width
         pos = np.array((x, y))
 
-        barrier = Barrier(i, self, pos, 
+        barrier = Barrier(i, self, pos,
             color, car_length=car_length, car_width=car_width)
 
         self.space.place_agent(barrier, pos)
@@ -120,7 +111,7 @@ class ChaosModel(Model):
         x = self.space.x_max/2 - self.road_width
         pos = np.array((x, y))
 
-        barrier = Barrier(i, self, pos, 
+        barrier = Barrier(i, self, pos,
             color, car_length=car_length, car_width=car_width)
 
         self.space.place_agent(barrier, pos)
@@ -135,5 +126,3 @@ class ChaosModel(Model):
 
         # Propagate forward one step based on chosen actions
         self.schedule.step()
-
-
