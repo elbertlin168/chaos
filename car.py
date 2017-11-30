@@ -35,7 +35,7 @@ CAR_WIDTH = 10 #5 #12
 CAR_LENGTH = 20 #25 #100
 
 # How far to lookahead for collision avoidance
-LOOKAHEAD = 15
+LOOKAHEAD = 5
 
 # Distance to look for neighbors
 # GET_NEIGHBOR_DIST = 100
@@ -285,9 +285,9 @@ class Car(Agent):
         # the front or back car in the collision
         steers[0] = self.go_straight()
         if collision_detection == COLLIDE_FRONT:
-            accels[0] = self.brake()
-        if collision_detection == COLLIDE_BACK:
             accels[0] = self.accelerate()
+        if collision_detection == COLLIDE_BACK:
+            accels[0] = self.brake()
 
         # Indicate collision
         self.color = "Red"
