@@ -42,7 +42,24 @@ class ChaosModel(Model):
     def make_agents(self, canvas_size):
         '''
         '''
-        for i in range(self.num_adversaries + 1):
+
+        # Qcar
+        pos = np.array((self.space.x_max/2, self.space.y_max-1))
+        speed = 0
+        heading = np.radians(-90)
+        target_speed = 10
+        color = "Black"
+        car_width = 6
+        car_length = 12
+        qcar = QCar(0, self, pos, speed, heading, self.road_width, 
+            color, target_speed, car_length=car_length, car_width=car_width)
+        self.agent = qcar
+        self.cars.append(qcar)
+        self.space.place_agent(qcar, pos)
+        self.schedule.add(qcar)
+
+
+        for i in range(1, self.num_adversaries + 1):
 
             # Random start position
             x = util.rand_center_spread(self.space.x_max/2, self.road_width)
@@ -97,30 +114,15 @@ class ChaosModel(Model):
             self.space.place_agent(car, pos)
             self.schedule.add(car)
 
-        # Qcar
-        pos = np.array((self.space.x_max/2, self.space.y_max-1))
-        speed = 0
-        heading = np.radians(-90)
-        target_speed = 10
-        color = "Black"
-        car_width = 6
-        car_length = 12
-        qcar = QCar(i, self, pos, speed, heading, self.road_width, 
-            color, target_speed, car_length=car_length, car_width=car_width)
-        self.agent = qcar
-        self.cars.append(qcar)
-        self.space.place_agent(qcar, pos)
-        self.schedule.add(qcar)
 
         # Barrier
         color = "Black"
         car_width = 1
         car_length = canvas_size
         y = self.space.y_max/2
-
-
         x = self.space.x_max/2 + self.road_width
         pos = np.array((x, y))
+        i = i+1
 
         barrier = Barrier(i, self, pos, 
             color, car_length=car_length, car_width=car_width)
@@ -130,7 +132,7 @@ class ChaosModel(Model):
 
         x = self.space.x_max/2 - self.road_width
         pos = np.array((x, y))
-
+        i = i+1
         barrier = Barrier(i, self, pos, 
             color, car_length=car_length, car_width=car_width)
 

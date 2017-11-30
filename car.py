@@ -497,3 +497,5 @@ class Car(Agent):
         else:
             return np.array((x, y))
 
+    def vel_components(self):
+        return self.speed * np.array((np.cos(self.heading), np.sin(self.heading)))
