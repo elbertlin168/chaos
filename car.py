@@ -215,6 +215,8 @@ class Car(Agent):
         self.model.space.move_agent(self, next_pos)
 
         next_reward = reward(self, collided)
+        self.reward += next_reward
+        return next_reward
 
         # print("id: {} steer: {} accel: {} speed: {} heading {}".format(
         #     self.unique_id, self.steer, self.accel, self.speed,
