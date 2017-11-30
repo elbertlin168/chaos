@@ -54,6 +54,9 @@ LEFT_TURN_PREFERENCE = 0.5
 # Minimum allowed speed in bicycle model
 MIN_SPEED = 0
 
+# The dimensions of the grid that make up the state
+STATE_SIZE = 5
+
 # Minimum distance from neighbors
 # RISK_TOLERANCE = 0.5
 # ATTENTION = 0.95
@@ -85,7 +88,8 @@ class Car(Agent):
                  accuracy=ACCURACY,
                  safety_margin=SAFETY_MARGIN,
                  car_width=CAR_WIDTH,
-                 car_length=CAR_LENGTH
+                 car_length=CAR_LENGTH,
+                 state_size=STATE_SIZE
                  # risk_tolerance=RISK_TOLERANCE,
                  # attention=ATTENTION,
                  ):
@@ -150,8 +154,9 @@ class Car(Agent):
         self.steer = 0
 
         # the sum of the rewards this agent recieved
-        self.cum_reward = 0
-        self.max_speed = target_speed
+        self.rewards_sum = 0
+
+        self.state_size = state_size
 
     def choose_action(self):
         '''
@@ -186,11 +191,11 @@ class Car(Agent):
         steering_cost = self.heading * -200
         acceleration_cost = self.accel * -100
         speed_reward = 0
-        if (self.speed > self.max_speed * 1.1):
+        if (self.speed > self.target_speed * 1.1):
             speed_reward = -1000
-        elif (self.speed > self.max_speed * 1.05):
+        elif (self.speed > self.target_speed * 1.05):
             speed_reward = 200
-        elif (self.speed > self.max_speed * 0.90):
+        elif (self.speed > self.target_speed * 0.90):
             speed_reward = 600
         else:
             speed_reward = 100
@@ -216,7 +221,8 @@ class Car(Agent):
         self.model.space.move_agent(self, next_pos)
 
         next_reward = self.reward(collided)
-        self.cum_reward += next_reward
+
+        self.rewards_sum += next_reward
         return next_reward
 
         # print("id: {} steer: {} accel: {} speed: {} heading {}".format(
