@@ -35,7 +35,7 @@ CAR_WIDTH = 10 #5 #12
 CAR_LENGTH = 20 #25 #100
 
 # How far to lookahead for collision avoidance
-LOOKAHEAD = 15
+LOOKAHEAD = 5
 
 # Distance to look for neighbors
 # GET_NEIGHBOR_DIST = 100
