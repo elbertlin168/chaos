@@ -300,7 +300,7 @@ class Car(Agent):
                         return (steers, accels)
 
         # If all possible actions are exhausted then return None
-        print('Could not avoid collision')
+        # print('Could not avoid collision')
         return self.resolve_collision(collision_detection)
 
     def resolve_collision(self, collision_detection):

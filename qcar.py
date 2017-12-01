@@ -3,6 +3,8 @@ from car import Car
 import pandas
 import random
 
+EPSILON = .5
+
 def stup(t):
     return "({:.1f}, {:.1f})".format(t[0], t[1])
 
@@ -68,10 +70,12 @@ class QCar(Car):
 
         accel_actions = [self.maintain_speed(), self.accelerate(), self.brake()]
 
-        if random.random() > 0.1:
+        if random.random() > EPSILON:
+            # print('random steer')
             self.steer = random.choice(steer_actions)
 
-        if random.random() > 0.1:
+        if random.random() > EPSILON:
+            # print('random accel')
             self.accel = random.choice(accel_actions)
 
     def step(self):
