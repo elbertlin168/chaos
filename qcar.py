@@ -8,8 +8,11 @@ EPSILON = .5
 def stup(t):
     return "({:.1f}, {:.1f})".format(t[0], t[1])
 
-def make_bins(lim, num_bins):
-    bins = np.linspace(-lim, lim, num=num_bins-1)
+def make_bins(max_val, num_bins, min_val=None):
+    if min_val is None:
+        min_val = -max_val
+
+    bins = np.linspace(min_val, max_val, num=num_bins-1)
     inf = float("inf")
 
     bins = np.insert(bins, 0, -inf)
@@ -31,8 +34,12 @@ class QCar(Car):
         relposy_bins = make_bins(self.model.space.y_max, 20)
         relvx_bins = make_bins(1, 5)
         relvy_bins = make_bins(2*self.target_speed, 5)
+        heading_err_bins = make_bins(np.radians(10), 5)
+        speed_err_bins = make_bins(0.5*self.target_speed, 5)
 
-        self.state_bins_list = [relposx_bins, relposy_bins, relvx_bins, relvy_bins]
+        self.state_bins_list = [relposx_bins, relposy_bins, 
+                                relvx_bins, relvy_bins, 
+                                heading_err_bins, speed_err_bins]
         self.state_bins_size_list = []
         # self.bins_list = []
         # inf = float("inf")
@@ -122,6 +129,9 @@ class QCar(Car):
             # self.pos[0], self.pos[1], 
             # self.vel_components()[0], self.vel_components()[1]))
 
+        speed_err = self.speed - self.target_speed
+        heading_err = self.heading - self.target_heading
+
         for neighbor in self.get_neighbors():
             pos = neighbor.pos
             vel = neighbor.vel_components()
@@ -129,7 +139,9 @@ class QCar(Car):
             relpos = pos - self.pos
             relv = vel - self.vel_components()
 
-            state_vars = [relpos[0], relpos[1], relv[0], relv[1]]
+            state_vars = [relpos[0], relpos[1], 
+                          relv[0], relv[1],
+                          speed_err, heading_err]
 
             state_nd = []
             for bins, val in zip(self.state_bins_list, state_vars):
