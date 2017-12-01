@@ -157,6 +157,11 @@ class Car(Agent):
         self.rewards_sum = 0
 
         self.state_size = state_size
+        self.current_state = [np.zeros((state_size, state_size)),
+                              np.zeros((state_size, state_size)),
+                              np.zeros((state_size, state_size)),
+                              np.zeros((state_size, state_size))]
+        self.current_state = self.state_grid()
 
     def choose_action(self):
         '''
@@ -203,6 +208,75 @@ class Car(Agent):
         collision_cost = collided * -50000
         return speed_reward + acceleration_cost + steering_cost + collision_cost
 
+    def get_grid(self, new_neighbors_pos):
+        new_pos = self.pos
+        n = self.state_size
+        grid = np.zeros((n, n))
+        grid[int(n / 2)][int(n / 2)] = 100 # our agent
+
+        space = self.model.space
+        xmin = space.x_max/2 - self.road_width/2
+        xmax = space.x_max/2 + self.road_width/2
+
+        width_size = 50.0 / n
+        height_size = 200.0 / n
+
+        # set boundaries
+        if abs(xmin - new_pos[0]) <= 25:
+            boundary_min = 0
+            if abs(xmin - new_pos[0]) < width_size / 2.0:
+                boundary_min = int(n / 2)
+            elif xmin > new_pos[0]:
+                boundary_min = int((xmin - new_pos[0] - width_size / 2.0) / width_size) + int(n / 2) + 1
+            else:
+                boundary_min = int((xmin - new_pos[0] + width_size / 2.0) / width_size) + int(n / 2) - 1
+            for i in range(n):
+                grid[i][boundary_min] += -5
+
+        if abs(xmax - new_pos[0]) <= 25:
+            boundary_max = 0
+            if abs(xmax - new_pos[0]) < width_size / 2.0:
+                boundary_max = int(n / 2)
+            elif xmax > new_pos[0]:
+                boundary_max = int((xmax - new_pos[0] - width_size / 2.0) / width_size) + int(n / 2) + 1
+            else:
+                boundary_max = int((xmax - new_pos[0] + width_size / 2.0) / width_size) + int(n / 2) - 1
+            for i in range(n):
+                grid[i][boundary_max] += -10
+
+        for neighbor in new_neighbors_pos:
+            rel_x = neighbor[0] - new_pos[0]
+            rel_y = neighbor[1] - new_pos[1]
+            if abs(rel_y) <= 100 and abs(rel_x) <= 25:
+                x = 0
+                y = 0
+                if abs(rel_x) < width_size / 2:
+                    x = int(n / 2)
+                elif rel_x > 0:
+                    x = int((rel_x - width_size / 2) / width_size) + int(n / 2) + 1
+                else:
+                    x = int((rel_x + width_size / 2) / width_size) + int(n / 2) - 1
+                if abs(rel_y) < height_size / 2:
+                    y = int(n / 2)
+                elif rel_y > 0:
+                    y = int((rel_y - height_size / 2) / height_size) + int(n / 2) + 1
+                else:
+                    y = int((rel_y + height_size / 2) / height_size) + int(n / 2) - 1
+                grid[y][x] += 1
+
+    def state_grid(self):
+        new_neighbors_pos = []
+        for neighbor in self.get_neighbors():
+            new_neighbors_pos.append(neighbor.pos)
+        new_state = []
+        current_grid = self.get_grid(new_neighbors_pos)
+
+        new_state.append(current_grid)
+        new_state.append(self.current_state[0])
+        new_state.append(self.current_state[1])
+        new_state.append(self.current_state[2])
+        return new_state
+
     def step(self):
         '''
         Uses chosen actions (steer and accel) to propagate state
@@ -222,7 +296,8 @@ class Car(Agent):
 
         next_reward = self.reward(collided)
         self.rewards_sum += next_reward
-        return next_reward
+        self.current_state = self.state_grid()
+        return next_reward, self.current_state
 
         # print("id: {} steer: {} accel: {} speed: {} heading {}".format(
         #     self.unique_id, self.steer, self.accel, self.speed,
