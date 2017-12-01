@@ -153,10 +153,9 @@ class Car(Agent):
           # via the bicycle model kinematics
         self.steer = 0
 
-        # the sum of the rewards this agent recieved
-        self.rewards_sum = 0
-
         self.state_size = state_size
+
+        self.collided = 0
 
     def choose_action(self):
         '''
@@ -187,7 +186,7 @@ class Car(Agent):
         self.steer = steers[0]
         self.accel = accels[0]
 
-    def reward(self, collided):
+    def reward(self):
         steering_cost = self.heading * -200
         acceleration_cost = self.accel * -100
         speed_reward = 0
@@ -200,7 +199,10 @@ class Car(Agent):
         else:
             speed_reward = 100
         # penalizes collisoins from the front more
-        collision_cost = collided * -50000
+        collision_cost = self.collided * -50000
+
+        # print("speed reward {}, accel cost {}, steer cost {}, collision cost {}".format(
+            # speed_reward, acceleration_cost, steering_cost, collision_cost))
         return speed_reward + acceleration_cost + steering_cost + collision_cost
 
     def step(self):
@@ -215,15 +217,11 @@ class Car(Agent):
 
         # Check collision
 
-        collided = self.collision_lookahead(np.array([self.steer]), np.array([self.accel]))
+        self.collided = self.collision_lookahead(np.array([self.steer]), np.array([self.accel]))
 
         # Move agent
         self.model.space.move_agent(self, next_pos)
 
-        next_reward = self.reward(collided)
-
-        self.rewards_sum += next_reward
-        return next_reward
 
         # print("id: {} steer: {} accel: {} speed: {} heading {}".format(
         #     self.unique_id, self.steer, self.accel, self.speed,
