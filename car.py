@@ -153,15 +153,14 @@ class Car(Agent):
           # via the bicycle model kinematics
         self.steer = 0
 
-        # the sum of the rewards this agent recieved
-        self.rewards_sum = 0
-
         self.state_size = state_size
         self.current_state = [np.zeros((state_size, state_size)),
                               np.zeros((state_size, state_size)),
                               np.zeros((state_size, state_size)),
                               np.zeros((state_size, state_size))]
         self.current_state = self.state_grid()
+
+        self.collided = 0
 
     def choose_action(self):
         '''
@@ -192,7 +191,7 @@ class Car(Agent):
         self.steer = steers[0]
         self.accel = accels[0]
 
-    def reward(self, collided):
+    def reward(self):
         steering_cost = self.heading * -200
         acceleration_cost = self.accel * -100
         speed_reward = 0
@@ -205,7 +204,10 @@ class Car(Agent):
         else:
             speed_reward = 100
         # penalizes collisoins from the front more
-        collision_cost = collided * -50000
+        collision_cost = self.collided * -50000
+
+        # print("speed reward {}, accel cost {}, steer cost {}, collision cost {}".format(
+            # speed_reward, acceleration_cost, steering_cost, collision_cost))
         return speed_reward + acceleration_cost + steering_cost + collision_cost
 
     def get_grid(self, new_neighbors_pos):
@@ -289,7 +291,7 @@ class Car(Agent):
 
         # Check collision
 
-        collided = self.collision_lookahead(np.array([self.steer]), np.array([self.accel]))
+        self.collided = self.collision_lookahead(np.array([self.steer]), np.array([self.accel]))
 
         # Move agent
         self.model.space.move_agent(self, next_pos)
@@ -376,7 +378,7 @@ class Car(Agent):
                         return (steers, accels)
 
         # If all possible actions are exhausted then return None
-        print('Could not avoid collision')
+        # print('Could not avoid collision')
         return self.resolve_collision(collision_detection)
 
     def resolve_collision(self, collision_detection):
@@ -608,3 +610,6 @@ class Car(Agent):
             return (x, y)
         else:
             return np.array((x, y))
+
+    def vel_components(self):
+        return self.speed * np.array((np.cos(self.heading), np.sin(self.heading)))
