@@ -7,7 +7,6 @@ from keras.models import Sequential
 from keras.layers import Dense, Conv2D
 from keras.optimizers import Adam
 
-STATE_SHAPE = (100, 100, 4)
 ACTION_SPACE = 9
 
 
@@ -26,7 +25,7 @@ class DeepQCar(Car):
     def _build_nn(self):
         # Neural Net for Deep-Q learning Model
         nn = Sequential()
-        nn.add(Conv2D(16, 8, strides=4, activation='relu', input_shape=STATE_SHAPE))
+        nn.add(Conv2D(16, 8, strides=4, activation='relu', input_shape=self.state_shape))
         nn.add(Conv2D(32, 4, strides=2, activation='relu'))
         nn.add(Dense(256, activation='relu'))
         n.add(Dense(ACTION_SPACE, activation='linear'))
@@ -40,7 +39,7 @@ class DeepQCar(Car):
     def save(self, name):
         self.nn.save_weights(name)
 
-    def remember(self, state, action, reward, next_state, done):
+    def remember(self, state, action, reward, next_state):
         self.memory.append((state, action, reward, next_state))
 
     def replay(self, batch_size):
