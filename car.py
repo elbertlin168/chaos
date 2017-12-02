@@ -44,7 +44,7 @@ LOOKAHEAD = 5
 COLLIDE_FRONT = 1
 COLLIDE_BACK = 2
 
-# How much to prefer left turns over right turns. 
+# How much to prefer left turns over right turns.
 # If 1.0 then left turn will always be attempted first and
 # right turn only performed if left results in collision
 # If 0.5 then half the time a left turn will be tried first
@@ -52,7 +52,10 @@ COLLIDE_BACK = 2
 LEFT_TURN_PREFERENCE = 0.5
 
 # Minimum allowed speed in bicycle model
-MIN_SPEED = 0 
+MIN_SPEED = 0
+
+# The dimensions of the grid that make up the state
+STATE_SIZE = 5
 
 # Minimum distance from neighbors
 # RISK_TOLERANCE = 0.5
@@ -68,25 +71,26 @@ class Car(Agent):
     '''
     '''
 
-    def __init__(self, 
-                 unique_id, 
-                 model, 
-                 pos, 
-                 speed, 
+    def __init__(self,
+                 unique_id,
+                 model,
+                 pos,
+                 speed,
                  heading,
                  road_width,
                  color,
-                 target_speed, 
-                 target_heading = TARGET_HEADING, 
+                 target_speed,
+                 target_heading = TARGET_HEADING,
                  speed_margin=SPEED_MARGIN,
-                 heading_margin=HEADING_MARGIN, 
-                 accel_mag=ACCEL_MAG, 
-                 steer_mag=STEER_MAG, 
-                 accuracy=ACCURACY, 
+                 heading_margin=HEADING_MARGIN,
+                 accel_mag=ACCEL_MAG,
+                 steer_mag=STEER_MAG,
+                 accuracy=ACCURACY,
                  safety_margin=SAFETY_MARGIN,
-                 car_width=CAR_WIDTH, 
-                 car_length=CAR_LENGTH
-                 # risk_tolerance=RISK_TOLERANCE, 
+                 car_width=CAR_WIDTH,
+                 car_length=CAR_LENGTH,
+                 state_size=STATE_SIZE
+                 # risk_tolerance=RISK_TOLERANCE,
                  # attention=ATTENTION,
                  ):
         '''
@@ -143,21 +147,29 @@ class Car(Agent):
         # Initialize inputs to 0
 
           # longitudinal acceleration effects speed directly
-        self.accel = 0 
+        self.accel = 0
 
           # steering angle in radians controls the angular velocity
           # via the bicycle model kinematics
         self.steer = 0
 
+        self.state_size = state_size
+        self.current_state = [np.zeros((state_size, state_size)),
+                              np.zeros((state_size, state_size)),
+                              np.zeros((state_size, state_size)),
+                              np.zeros((state_size, state_size))]
+        self.current_state = self.state_grid()
+
+        self.collided = 0
 
     def choose_action(self):
         '''
-        Assigns steer and accel values to try and meet target 
-        heading and speed. 
+        Assigns steer and accel values to try and meet target
+        heading and speed.
         If a collision is detetected, tries to choose action
         to avoid collision
         '''
- 
+
         # Reset color
         self.color = self.orig_color
 
@@ -179,27 +191,123 @@ class Car(Agent):
         self.steer = steers[0]
         self.accel = accels[0]
 
+    def reward(self):
+        steering_cost = self.heading * -200
+        acceleration_cost = self.accel * -100
+        speed_reward = 0
+        if (self.speed > self.target_speed * 1.1):
+            speed_reward = -1000
+        elif (self.speed > self.target_speed * 1.05):
+            speed_reward = 200
+        elif (self.speed > self.target_speed * 0.90):
+            speed_reward = 600
+        else:
+            speed_reward = 100
+        # penalizes collisoins from the front more
+        collision_cost = self.collided * -50000
+
+        # print("speed reward {}, accel cost {}, steer cost {}, collision cost {}".format(
+            # speed_reward, acceleration_cost, steering_cost, collision_cost))
+        return speed_reward + acceleration_cost + steering_cost + collision_cost
+
+    def get_grid(self, new_neighbors_pos):
+        new_pos = self.pos
+        n = self.state_size
+        grid = np.zeros((n, n))
+        grid[int(n / 2)][int(n / 2)] = 100 # our agent
+
+        space = self.model.space
+        xmin = space.x_max/2 - self.road_width/2
+        xmax = space.x_max/2 + self.road_width/2
+
+        width_size = 50.0 / n
+        height_size = 200.0 / n
+
+        # set boundaries
+        if abs(xmin - new_pos[0]) <= 25:
+            boundary_min = 0
+            if abs(xmin - new_pos[0]) < width_size / 2.0:
+                boundary_min = int(n / 2)
+            elif xmin > new_pos[0]:
+                boundary_min = int((xmin - new_pos[0] - width_size / 2.0) / width_size) + int(n / 2) + 1
+            else:
+                boundary_min = int((xmin - new_pos[0] + width_size / 2.0) / width_size) + int(n / 2) - 1
+            for i in range(n):
+                grid[i][boundary_min] += -5
+
+        if abs(xmax - new_pos[0]) <= 25:
+            boundary_max = 0
+            if abs(xmax - new_pos[0]) < width_size / 2.0:
+                boundary_max = int(n / 2)
+            elif xmax > new_pos[0]:
+                boundary_max = int((xmax - new_pos[0] - width_size / 2.0) / width_size) + int(n / 2) + 1
+            else:
+                boundary_max = int((xmax - new_pos[0] + width_size / 2.0) / width_size) + int(n / 2) - 1
+            for i in range(n):
+                grid[i][boundary_max] += -10
+
+        for neighbor in new_neighbors_pos:
+            rel_x = neighbor[0] - new_pos[0]
+            rel_y = neighbor[1] - new_pos[1]
+            if abs(rel_y) <= 100 and abs(rel_x) <= 25:
+                x = 0
+                y = 0
+                if abs(rel_x) < width_size / 2:
+                    x = int(n / 2)
+                elif rel_x > 0:
+                    x = int((rel_x - width_size / 2) / width_size) + int(n / 2) + 1
+                else:
+                    x = int((rel_x + width_size / 2) / width_size) + int(n / 2) - 1
+                if abs(rel_y) < height_size / 2:
+                    y = int(n / 2)
+                elif rel_y > 0:
+                    y = int((rel_y - height_size / 2) / height_size) + int(n / 2) + 1
+                else:
+                    y = int((rel_y + height_size / 2) / height_size) + int(n / 2) - 1
+                grid[y][x] += 1
+
+    def state_grid(self):
+        new_neighbors_pos = []
+        for neighbor in self.get_neighbors():
+            new_neighbors_pos.append(neighbor.pos)
+        new_state = []
+        current_grid = self.get_grid(new_neighbors_pos)
+
+        new_state.append(current_grid)
+        new_state.append(self.current_state[0])
+        new_state.append(self.current_state[1])
+        new_state.append(self.current_state[2])
+        return new_state
 
     def step(self):
         '''
-        Uses chosen actions (steer and accel) to propagate state 
-        (pos, speed, heading) with the bicycle model. 
+        Uses chosen actions (steer and accel) to propagate state
+        (pos, speed, heading) with the bicycle model.
         '''
 
         # Propagate state
         (self.speed, self.heading, next_pos) = self.bicycle_model( \
             self.steer, self.accel, self.speed, self.heading, self.pos)
 
+        # Check collision
+
+        self.collided = self.collision_lookahead(np.array([self.steer]), np.array([self.accel]))
+
         # Move agent
         self.model.space.move_agent(self, next_pos)
+
+        next_reward = self.reward(collided)
+        self.rewards_sum += next_reward
+        self.current_state = self.state_grid()
+        return next_reward, self.current_state
 
         # print("id: {} steer: {} accel: {} speed: {} heading {}".format(
         #     self.unique_id, self.steer, self.accel, self.speed,
         #     np.degrees(self.heading)))
 
     def speed_control(self):
-        # Steers and accels represent a sequence of actions over the next 
-        # N steps. N is controlled by LOOKAHEAD. 
+        # Steers and accels represent a sequence of actions over the next
+        # N steps. N is controlled by LOOKAHEAD.
         # Initialize these vectors with 0
         accels = np.zeros(LOOKAHEAD)
 
@@ -214,8 +322,8 @@ class Car(Agent):
         return accels
 
     def heading_control(self):
-        # Steers and accels represent a sequence of actions over the next 
-        # N steps. N is controlled by LOOKAHEAD. 
+        # Steers and accels represent a sequence of actions over the next
+        # N steps. N is controlled by LOOKAHEAD.
         # Initialize these vectors with 0
         steers = np.zeros(LOOKAHEAD)
         accels = np.zeros(LOOKAHEAD)
@@ -233,24 +341,24 @@ class Car(Agent):
 
     def avoid_collision(self, collision_detection):
 
-        # Enumerate heading actions in priority order. 
-        # In order to not prioritize left or right use a random number 
-        # to choose which one to try first. 
+        # Enumerate heading actions in priority order.
+        # In order to not prioritize left or right use a random number
+        # to choose which one to try first.
         if random.random() > LEFT_TURN_PREFERENCE:
             steer_actions = [self.turn_left(), self.turn_right(), self.go_straight()]
-        else: 
+        else:
             steer_actions = [self.turn_right(), self.turn_left(), self.go_straight()]
 
         # Enumerate speed actions in priority order
         accel_actions = [self.maintain_speed(), self.accelerate(), self.brake()]
 
 
-        # Try all combinations of speed and heading actions    
+        # Try all combinations of speed and heading actions
         for steer in steer_actions:
             for accel in accel_actions:
 
-                # Steers and accels represent a sequence of actions over the next 
-                # N steps. N is controlled by LOOKAHEAD. 
+                # Steers and accels represent a sequence of actions over the next
+                # N steps. N is controlled by LOOKAHEAD.
                 # Initialize these vectors with 0
                 steers = np.zeros(LOOKAHEAD)
                 accels = np.zeros(LOOKAHEAD)
@@ -260,7 +368,7 @@ class Car(Agent):
                 for i in range(0, LOOKAHEAD):
 
                     # Add steering and acceleration actions
-                    # to the action vectors 
+                    # to the action vectors
                     steers[i] = steer
                     accels[i] = accel
 
@@ -270,12 +378,12 @@ class Car(Agent):
                         return (steers, accels)
 
         # If all possible actions are exhausted then return None
-        print('Could not avoid collision')
+        # print('Could not avoid collision')
         return self.resolve_collision(collision_detection)
 
     def resolve_collision(self, collision_detection):
-        # Steers and accels represent a sequence of actions over the next 
-        # N steps. N is controlled by LOOKAHEAD. 
+        # Steers and accels represent a sequence of actions over the next
+        # N steps. N is controlled by LOOKAHEAD.
         # Initialize these vectors with 0
         steers = np.zeros(LOOKAHEAD)
         accels = np.zeros(LOOKAHEAD)
@@ -295,14 +403,17 @@ class Car(Agent):
         return (steers, accels)
 
 
-    def collision_lookahead(self, steers, accels):
+    def collision_lookahead(self, steers, accels, truth=False):
         '''
-        Function to detect a collision given a vector of 
+        Function to detect a collision given a vector of
         steering and acceleration actions.
 
-        Propagates self and neighbors forward using bicycle model. 
+        Propagates self and neighbors forward using bicycle model.
         If any step in the propagation has a collision returns a
         nonzero value.
+
+        Set truth to True to get whether the agent actually collided or not.
+        And False to get it based on the agent's belief.
         '''
 
         # Get neighbors
@@ -328,7 +439,10 @@ class Car(Agent):
             neighbor_pos_list = neighbor.bicycle_lookahead( \
                 no_actions, no_actions, self.accuracy)
 
-            collision_status = self.collision(new_pos_list, neighbor, neighbor_pos_list)
+            if truth:
+                collision_status = self.collision(new_pos_list, neighbor, neighbor_pos_list, 0)
+            else:
+                collision_status = self.collision(new_pos_list, neighbor, neighbor_pos_list, self.safety_margin)
 
             # Check each step in propagation for a collision
             if collision_status > 0:
@@ -347,9 +461,9 @@ class Car(Agent):
     def bicycle_lookahead(self, steers, accels, accuracy):
         '''
         Propagate state using bicycle model and action vectors
-        steers and accels. 
+        steers and accels.
 
-        Returns an array of positions  
+        Returns an array of positions
         '''
 
         # Initialize with current speed, heading, position
@@ -376,9 +490,9 @@ class Car(Agent):
             pos = next_pos
 
         return np.array(future_pos)
-     
 
-    def collision(self, new_pos_list, neighbor, neighbor_pos_list):
+
+    def collision(self, new_pos_list, neighbor, neighbor_pos_list, safety_margin):
         '''
         Check for a collision. If there is one indicate
         whether self is the front or back car in the collision
@@ -386,9 +500,9 @@ class Car(Agent):
 
 
         v_safe_space = (self.car_length + neighbor.car_length) * \
-                        (1 + self.safety_margin) / 2
+                        (1 + safety_margin) / 2
         h_safe_space = (self.car_width + neighbor.car_width) * \
-                        (1 + self.safety_margin) / 2
+                        (1 + safety_margin) / 2
 
         # Check each step in the position list
         for new_pos, neighbor_pos in zip(new_pos_list, neighbor_pos_list):
@@ -399,7 +513,7 @@ class Car(Agent):
                self.collision_overlap(new_pos[1], \
                                       neighbor_pos[1], \
                                       v_safe_space):
-               if new_pos[1] > neighbor_pos[1]: 
+               if new_pos[1] > neighbor_pos[1]:
                     return COLLIDE_BACK
                else:
                     return COLLIDE_FRONT
@@ -497,3 +611,5 @@ class Car(Agent):
         else:
             return np.array((x, y))
 
+    def vel_components(self):
+        return self.speed * np.array((np.cos(self.heading), np.sin(self.heading)))
