@@ -1,13 +1,15 @@
 from model import ChaosModel
 import numpy as np
 
+NUM_EPISODES = 3 #50
+NUM_STEPS_PER_EPISODE = 60
 rewards = []
-for i  in range(50):
-    model = ChaosModel(canvas_size=500, num_adversaries=1, road_width=60)
+for i  in range(NUM_EPISODES):
+    model = ChaosModel(canvas_size=500, num_adversaries=3, road_width=60)
     start_y = model.agent.pos[1]
     prev_y = start_y
     # count = 0
-    for j in range(60):
+    for j in range(NUM_STEPS_PER_EPISODE):
         model.step()
         y = model.agent.pos[1]
         # print("pos y: {:.1f}".format(y))
