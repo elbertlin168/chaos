@@ -4,6 +4,7 @@ import numpy as np
 from mesa import Model
 from mesa.space import ContinuousSpace
 from mesa.time import RandomActivation
+from mesa.datacollection import DataCollector
 
 from car import Car
 from qcar import QCar
@@ -11,11 +12,15 @@ from barrier import Barrier
 
 import util
 
+def get_rewards_sum(model):
+    return model.agent.rewards_sum
+
 class ChaosModel(Model):
     '''
     '''
 
-    def __init__(self, canvas_size=500, num_adversaries=8, road_width=60):
+    def __init__(self, agent_type, canvas_size=500, 
+                 num_adversaries=8, road_width=60):
         '''
         '''
         self.num_adversaries = num_adversaries
@@ -28,6 +33,9 @@ class ChaosModel(Model):
 
         self.make_agents(canvas_size)
         self.running = True
+
+        self.datacollector = DataCollector(
+            model_reporters={"Agent rewards sum": get_rewards_sum})
 
 
     def make_agents(self, canvas_size):
@@ -83,19 +91,6 @@ class ChaosModel(Model):
                 car_width = util.rand_min_max(5, 6)
                 car_length = util.rand_min_max(12, 16)
 
-
-
-            # if i == 0:
-            #     pos = np.array((250,250))
-            #     speed = 5
-            #     target_speed = 5
-            #     heading = np.radians(-90)
-            # elif i == 1:
-            #     pos = np.array((250, 490))
-            #     speed = 15
-            #     target_speed = 15
-            #     heading = np.radians(-90)
-
             if i == 1:
                 pos = np.array((250, 250))
                 speed = 0
@@ -114,44 +109,32 @@ class ChaosModel(Model):
             self.schedule.add(car)
 
 
-        # Barrier
+        # Barriers
         color = "Black"
-        car_width = 1
-        car_length = canvas_size
-        y = self.space.y_max/2
-        x = self.space.x_max/2 + self.road_width
+        width = 1
+        length = canvas_size
+        y = self.space.y_max / 2
+        x = (self.space.x_max + self.road_width + 10) / 2
         pos = np.array((x, y))
-        i = i+1
-
-        barrier = Barrier(i, self, pos,
-            color, car_length=car_length, car_width=car_width)
-
+        i = i + 1
+        barrier = Barrier(i, self, pos, color, width, length)
         self.space.place_agent(barrier, pos)
         self.schedule.add(barrier)
 
-        x = self.space.x_max/2 - self.road_width
+        x = (self.space.x_max - self.road_width - 10) / 2
         pos = np.array((x, y))
-        i = i+1
-        barrier = Barrier(i, self, pos, 
-            color, car_length=car_length, car_width=car_width)
-
+        i = i + 1
+        barrier = Barrier(i, self, pos, color, width, length)
         self.space.place_agent(barrier, pos)
         self.schedule.add(barrier)
-
-
 
 
     def step(self):
+        self.datacollector.collect(self)
         # First loop through and have all cars choose an action
         # before the action is actually propagated forward
         for car in self.cars:
             car.choose_action()
 
         # Propagate forward one step based on chosen actions
-        self.schedule.step()
-
-        # curr = self.get_rewards_sum()
-        # print("{:.0f}".format(curr))
-
-    def get_rewards_sum(self):
-        return self.agent.rewards_sum
+        self.schedule.step()    

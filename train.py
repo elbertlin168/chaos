@@ -1,4 +1,5 @@
-from model import ChaosModel
+from model import ChaosModel, get_rewards_sum
+
 import numpy as np
 
 rewards = []
@@ -17,7 +18,7 @@ for i  in range(50):
         # count = count + 1
 
     # print(count)
-    curr = model.get_rewards_sum()
+    curr = get_rewards_sum(model)
     rewards.append(curr)
     print("{:.0f}".format(curr))
 
