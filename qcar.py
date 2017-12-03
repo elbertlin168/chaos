@@ -30,6 +30,8 @@ class QCar(Car):
         for neighbor in self.get_neighbors():
             self.states.append(-1)
 
+        self.out_file = out_file
+
     def choose_action(self):
         super().choose_action()
 
@@ -60,8 +62,8 @@ class QCar(Car):
         for i in range(len(prev_states)):
             prev_state = prev_states[i]
             state = self.states[i]
-            if prev_state >= 0:
-                with open("train.out", 'a') as f:
+            if prev_state >= 0 and self.out_file:
+                with open(self.out_file, 'a') as f:
                     f.write("{} {:6.0f}, {:6.0f}, {:10.2f}, {:6.0f}\n".format(
                     i, prev_state, action, reward, state))
 

@@ -15,7 +15,7 @@ class ChaosModel(Model):
     '''
     '''
 
-    def __init__(self, canvas_size=500, num_adversaries=8, road_width=60):
+    def __init__(self, canvas_size=500, num_adversaries=8, road_width=60, out_file=None):
         '''
         '''
         self.num_adversaries = num_adversaries
@@ -26,11 +26,11 @@ class ChaosModel(Model):
         self.cars = []
         self.agent = []
 
-        self.make_agents(canvas_size)
+        self.make_agents(canvas_size, out_file)
         self.running = True
 
 
-    def make_agents(self, canvas_size):
+    def make_agents(self, canvas_size, out_file):
         '''
         '''
 
@@ -43,7 +43,8 @@ class ChaosModel(Model):
         car_width = 6
         car_length = 12
         qcar = QCar(0, self, pos, speed, heading, self.road_width, 
-            color, target_speed, car_length=car_length, car_width=car_width)
+            color, target_speed, car_length=car_length, car_width=car_width, 
+            out_file=out_file)
         self.agent = qcar
         self.cars.append(qcar)
         self.space.place_agent(qcar, pos)
