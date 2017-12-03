@@ -3,69 +3,8 @@ import random
 from mesa import Agent
 import math
 import util
+from settings import *
 
-
-# Desired heading
-TARGET_HEADING = -np.radians(90)
-
-# Allowed error on speed.
-# Warning: If the margin is too small relative to the
-# accel magnitude it will be unstable
-SPEED_MARGIN = 0.1
-
-# Allowed error on heading.
-# Warning: If the margin is too small relative to the
-# steer magnitude, it will be unstable
-HEADING_MARGIN = np.radians(1)
-
-# How much accel/brake in each action
-ACCEL_MAG = 0.5
-
-# How much steering in each action
-STEER_MAG = np.radians(3)
-
-# Accuracy in propagation during collision detection
-ACCURACY = 1
-
-# Safety buffer around car dimensions in collision detection
-SAFETY_MARGIN = 0.3
-
-# Car dimensions
-CAR_WIDTH = 10 #5 #12
-CAR_LENGTH = 20 #25 #100
-
-# How far to lookahead for collision avoidance
-LOOKAHEAD = 5
-
-# Distance to look for neighbors
-# GET_NEIGHBOR_DIST = 100
-
-# Enumerate code for collide front and back
-COLLIDE_FRONT = 1
-COLLIDE_BACK = 2
-
-# How much to prefer left turns over right turns.
-# If 1.0 then left turn will always be attempted first and
-# right turn only performed if left results in collision
-# If 0.5 then half the time a left turn will be tried first
-# and half the time right turn will be tried first
-LEFT_TURN_PREFERENCE = 0.5
-
-# Minimum allowed speed in bicycle model
-MIN_SPEED = 0
-
-# The dimensions of the grid that make up the state
-STATE_SIZE = 5
-
-# Minimum distance from neighbors
-# RISK_TOLERANCE = 0.5
-# ATTENTION = 0.95
-
-def wrap_angle(angles):
-   '''
-   Returns angle betwee -pi and pi
-   '''
-   return ( angles + np.pi) % (2 * np.pi ) - np.pi
 
 class Car(Agent):
     '''
@@ -154,8 +93,12 @@ class Car(Agent):
         self.steer = 0
 
         self.state_size = state_size
+        self.state_shape = (state_size, state_size, 4)
+        self.current_state = np.zeros((state_size, state_size, 4))
+        self.update_state_grid()
 
         self.collided = 0
+        self.rewards_sum = 0
 
     def choose_action(self):
         '''
@@ -205,6 +148,72 @@ class Car(Agent):
             # speed_reward, acceleration_cost, steering_cost, collision_cost))
         return speed_reward + acceleration_cost + steering_cost + collision_cost
 
+    def get_grid(self, new_neighbors_pos):
+        new_pos = self.pos
+        n = self.state_size
+        grid = np.zeros((n, n))
+        grid[int(n / 2)][int(n / 2)] = 100 # our agent
+
+        space = self.model.space
+        xmin = space.x_max/2 - self.road_width/2
+        xmax = space.x_max/2 + self.road_width/2
+
+        width_size = 50.0 / n
+        height_size = 200.0 / n
+
+        # set boundaries
+        if abs(xmin - new_pos[0]) <= 25:
+            boundary_min = 0
+            if abs(xmin - new_pos[0]) < width_size / 2.0:
+                boundary_min = int(n / 2)
+            elif xmin > new_pos[0]:
+                boundary_min = int((xmin - new_pos[0] - width_size / 2.0) / width_size) + int(n / 2) + 1
+            else:
+                boundary_min = int((xmin - new_pos[0] + width_size / 2.0) / width_size) + int(n / 2) - 1
+            for i in range(n):
+                grid[i][boundary_min] += -5
+
+        if abs(xmax - new_pos[0]) <= 25:
+            boundary_max = 0
+            if abs(xmax - new_pos[0]) < width_size / 2.0:
+                boundary_max = int(n / 2)
+            elif xmax > new_pos[0]:
+                boundary_max = int((xmax - new_pos[0] - width_size / 2.0) / width_size) + int(n / 2) + 1
+            else:
+                boundary_max = int((xmax - new_pos[0] + width_size / 2.0) / width_size) + int(n / 2) - 1
+            for i in range(n):
+                grid[i][boundary_max] += -10
+
+        for neighbor in new_neighbors_pos:
+            rel_x = neighbor[0] - new_pos[0]
+            rel_y = neighbor[1] - new_pos[1]
+            if abs(rel_y) <= 100 and abs(rel_x) <= 25:
+                x = 0
+                y = 0
+                if abs(rel_x) < width_size / 2:
+                    x = int(n / 2)
+                elif rel_x > 0:
+                    x = int((rel_x - width_size / 2) / width_size) + int(n / 2) + 1
+                else:
+                    x = int((rel_x + width_size / 2) / width_size) + int(n / 2) - 1
+                if abs(rel_y) < height_size / 2:
+                    y = int(n / 2)
+                elif rel_y > 0:
+                    y = int((rel_y - height_size / 2) / height_size) + int(n / 2) + 1
+                else:
+                    y = int((rel_y + height_size / 2) / height_size) + int(n / 2) - 1
+                grid[y][x] += 1
+
+    def update_state_grid(self):
+        new_neighbors_pos = []
+        for neighbor in self.get_neighbors():
+            new_neighbors_pos.append(neighbor.pos)
+        new_state = []
+        current_grid = self.get_grid(new_neighbors_pos)
+
+        self.current_state = self.current_state[:,:,[3,0,1,2]]
+        self.current_state[:,:,0] = current_grid
+
     def step(self):
         '''
         Uses chosen actions (steer and accel) to propagate state
@@ -222,6 +231,10 @@ class Car(Agent):
         # Move agent
         self.model.space.move_agent(self, next_pos)
 
+        next_reward = self.reward()
+        self.rewards_sum += next_reward
+        self.update_state_grid()
+        return next_reward, self.current_state
 
         # print("id: {} steer: {} accel: {} speed: {} heading {}".format(
         #     self.unique_id, self.steer, self.accel, self.speed,
@@ -250,7 +263,7 @@ class Car(Agent):
         steers = np.zeros(LOOKAHEAD)
         accels = np.zeros(LOOKAHEAD)
 
-        heading_error = wrap_angle(self.heading - TARGET_HEADING)
+        heading_error = util.wrap_angle(self.heading - TARGET_HEADING)
 
         if heading_error < -self.heading_margin:
             steers[0] = self.turn_left()
@@ -477,7 +490,7 @@ class Car(Agent):
         # Sideslip
         # Beta = arctan(lr*tan(d)/(lr+lf))
         sideslip = np.arctan(self.lr*np.tan(steer)/(self.lr + self.lf))
-        sideslip = wrap_angle(sideslip)
+        sideslip = util.wrap_angle(sideslip)
 
         # Speed
         next_speed = speed + accel
@@ -487,7 +500,7 @@ class Car(Agent):
         # Heading
         # delta_heading = v*sin(B)/lr
         next_heading = heading + next_speed*np.sin(sideslip)/self.lr
-        next_heading = wrap_angle(next_heading)
+        next_heading = util.wrap_angle(next_heading)
 
         # Position
         delta_x = next_speed*np.cos(next_heading + sideslip)

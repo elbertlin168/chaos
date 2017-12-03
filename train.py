@@ -1,4 +1,5 @@
-from model import ChaosModel
+from model import ChaosModel, get_rewards_sum
+
 import numpy as np
 import argparse
 
@@ -7,7 +8,7 @@ NUM_STEPS_PER_EPISODE = 60
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train model')
-
+    
     parser.add_argument(
         '--outfile',
         type=str,
