@@ -8,88 +8,54 @@ from settings import *
 
 class Car(Agent):
     '''
+    Basic car agent that attempts to avoid collisions greedily with a
+    small amount of lookahead prediction
     '''
 
-    def __init__(self,
-                 unique_id,
-                 model,
-                 pos,
-                 speed,
-                 heading,
-                 road_width,
-                 color,
-                 target_speed,
-                 target_heading = TARGET_HEADING,
+    def __init__(self, unique_id, model,              # super() args
+                 pos, speed, heading, color,          # agent descriptors
+                 target_speed=TARGET_SPEED,
+                 target_heading=TARGET_HEADING,
                  speed_margin=SPEED_MARGIN,
                  heading_margin=HEADING_MARGIN,
                  accel_mag=ACCEL_MAG,
                  steer_mag=STEER_MAG,
                  accuracy=ACCURACY,
                  safety_margin=SAFETY_MARGIN,
-                 car_width=CAR_WIDTH,
-                 car_length=CAR_LENGTH,
+                 width=CAR_WIDTH,
+                 length=CAR_LENGTH,
                  state_size=STATE_SIZE
-                 # risk_tolerance=RISK_TOLERANCE,
-                 # attention=ATTENTION,
                  ):
-        '''
-        '''
         super().__init__(unique_id, model)
 
-        # Initial position
+        # Initial values
         self.pos = np.array(pos)
-
-        # Initial speed
         self.speed = speed
-
-        # Initial heading
         self.heading = heading
-
-        # Road width. Sets the boundary
-        self.road_width = road_width
-
-        # Set orig color
         self.orig_color = color
         self.color = color
+        self.width = width
+        self.length = length
 
         # Target speed and heading
         self.target_speed = target_speed
         self.target_heading = target_heading
 
-        # Speed and heading margin
+        # Movement control variables
         self.speed_margin = speed_margin
         self.heading_margin = heading_margin
-
-        # Steer/accel magnitudes
         self.accel_mag = accel_mag
         self.steer_mag = steer_mag
 
-        # accuracy of state propagation in collision detection
+        # Collision avoidance variables
         self.accuracy = accuracy
-
-        # margin for collision avoidance
         self.safety_margin = safety_margin
 
-        # Size of car for collision detection
-        self.car_width = car_width
-        self.car_length = car_length
 
-        # self.risk_tolerance = risk_tolerance
-        # self.attention = attention
-
-        # Initialize the bicycle model
-        # These constants can be varied if we want to change
-        # how the steering angle effects the turning kinematics
+        # Bicycle model variables
         self.lr = 1
         self.lf = 1
-
-        # Initialize inputs to 0
-
-          # longitudinal acceleration effects speed directly
         self.accel = 0
-
-          # steering angle in radians controls the angular velocity
-          # via the bicycle model kinematics
         self.steer = 0
 
         self.state_size = state_size
@@ -155,8 +121,8 @@ class Car(Agent):
         grid[int(n / 2)][int(n / 2)] = 100 # our agent
 
         space = self.model.space
-        xmin = space.x_max/2 - self.road_width/2
-        xmax = space.x_max/2 + self.road_width/2
+        xmin = space.x_max/2 - self.model.road_width/2
+        xmax = space.x_max/2 + self.model.road_width/2
 
         width_size = 50.0 / n
         height_size = 200.0 / n
@@ -261,10 +227,8 @@ class Car(Agent):
         # N steps. N is controlled by LOOKAHEAD.
         # Initialize these vectors with 0
         steers = np.zeros(LOOKAHEAD)
-        accels = np.zeros(LOOKAHEAD)
 
         heading_error = util.wrap_angle(self.heading - TARGET_HEADING)
-
         if heading_error < -self.heading_margin:
             steers[0] = self.turn_left()
         elif heading_error > self.heading_margin:
@@ -434,9 +398,9 @@ class Car(Agent):
         '''
 
 
-        v_safe_space = (self.car_length + neighbor.car_length) * \
+        v_safe_space = (self.length + neighbor.length) * \
                         (1 + safety_margin) / 2
-        h_safe_space = (self.car_width + neighbor.car_width) * \
+        h_safe_space = (self.width + neighbor.width) * \
                         (1 + safety_margin) / 2
 
         # Check each step in the position list
@@ -536,8 +500,8 @@ class Car(Agent):
 
         space = self.model.space
 
-        xmin = space.x_max/2 - self.road_width/2
-        xmax = space.x_max/2 + self.road_width/2
+        xmin = space.x_max/2 - self.model.road_width/2
+        xmax = space.x_max/2 + self.model.road_width/2
 
         x = min(max(pos[0], xmin), xmax - 1e-8)
         y = space.y_min + ((pos[1] - space.y_min) % space.height)

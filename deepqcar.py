@@ -1,6 +1,6 @@
 import random
 import numpy as np
-import car
+from car import Car
 
 from collections import deque
 from keras.models import Sequential
