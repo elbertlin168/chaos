@@ -63,7 +63,6 @@ class QCar(Car):
         self.action_bins.add_bins('accel', Bin(self.accel_mag/2, 3))
 
         # Initialize
-        self.rewards_sum = 0
 
         self.states = []
         for neighbor in self.get_neighbors():
@@ -87,9 +86,7 @@ class QCar(Car):
         # super().choose_action()
 
         # Print state, action, reward, next state to file
-        reward = self.reward()
-
-        self.rewards_sum += reward
+        reward = self.model.curr_reward
 
         prev_states = self.states
         self.states = self.get_all_states()

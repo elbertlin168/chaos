@@ -16,7 +16,7 @@ from settings import AgentType
 
 
 def get_rewards_sum(model):
-    return model.learn_agent.rewards_sum
+    return model.rewards_sum
 
 class ChaosModel(Model):
     '''
@@ -44,6 +44,9 @@ class ChaosModel(Model):
         self.running = True
 
         self.step_count = 0
+
+        self.rewards_sum = 0
+        self.curr_reward = 0
 
 
         self.datacollector = DataCollector(
@@ -184,20 +187,28 @@ class ChaosModel(Model):
         # Propagate forward one step based on chosen actions
         self.schedule.step()    
 
+        self.curr_reward = self.reward()
+        self.rewards_sum += self.curr_reward
 
-    def reward(self, agent):
-        steering_cost = agent.steer * -200
-        acceleration_cost = agent.accel * -100
+    def reward(self):
+        agent = self.learn_agent
+        heading_cost = np.abs(agent.heading - agent.target_heading) * -2
+        steering_cost = np.abs(agent.steer) * -2
+        acceleration_cost = np.abs(agent.accel) * -1
         speed_reward = 0
         if (agent.speed > agent.target_speed * 1.1):
-            speed_reward = -1000
+            speed_reward = -20
         elif (agent.speed > agent.target_speed * 1.05):
-            speed_reward = 200
+            speed_reward = -2
         elif (agent.speed > agent.target_speed * 0.90):
-            speed_reward = 600
+            speed_reward = 0
         else:
-            speed_reward = 100
+            speed_reward = -3
         # penalizes collisoins from the front more
-        collision_cost = agent.collided * -50000
+        collision_cost = agent.collided * -500
 
-        return speed_reward + acceleration_cost + steering_cost + collision_cost
+        # print("speed reward {}, accel cost {}, steer cost {}, collision cost {}".format(
+            # speed_reward, acceleration_cost, steering_cost, collision_cost))
+        return speed_reward + acceleration_cost + steering_cost + \
+               collision_cost + heading_cost
+        # return speed_reward
