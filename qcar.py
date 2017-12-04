@@ -3,6 +3,7 @@ from car import Car
 import random
 from Discretize import *
 from settings import *
+import pickle
 
 # EPSILON = 0.5
 
@@ -55,11 +56,11 @@ class QCar(Car):
         self.state_bins.add_bins('relposy',     Bin(self.model.space.y_max, 1))
         self.state_bins.add_bins('relvx',       Bin(1, 1))
         self.state_bins.add_bins('relvy',       Bin(2*self.target_speed, 1))
-        self.state_bins.add_bins('heading_err', Bin(np.radians(10), 1))
-        self.state_bins.add_bins('speed_err',   Bin(0.5*self.target_speed, 10))
+        self.state_bins.add_bins('heading_err', Bin(np.radians(10), 4))
+        self.state_bins.add_bins('speed_err',   Bin(0.5*self.target_speed, 4))
 
         self.action_bins = Discretize()
-        self.action_bins.add_bins('steer', Bin(self.steer_mag/2, 1))
+        self.action_bins.add_bins('steer', Bin(self.steer_mag/2, 3))
         self.action_bins.add_bins('accel', Bin(self.accel_mag/2, 3))
 
         # Initialize
@@ -79,6 +80,12 @@ class QCar(Car):
             N = np.zeros((self.state_bins.size(), self.action_bins.size()))
         self.Q = Q
         self.N = N
+
+        # Q_logs = pickle.load(open('train_sh.p', 'rb'))
+        # self.Q = Q_logs[0]
+        # self.N = Q_logs[1]
+        # rewards = Q_logs[2]
+
         # self.alpha = 1
         self.discount = 0.9
 
@@ -108,10 +115,12 @@ class QCar(Car):
         # print(prev_states, self.states, prev_action)
         # print(self.Q)
         # print(self.N.sum())
-        if self.N.sum() > 1000:
+        if self.N.sum().sum() > 1000:
             EPSILON = 1.0
         else:
             EPSILON = 0.5
+
+        print(self.N.sum(), EPSILON)
 
 
         # action = self.Q[self.states[0]].argmax()
@@ -140,7 +149,8 @@ class QCar(Car):
             # print('random accel')
             self.accel = random.choice(accel_actions)
 
-        self.steer = 0
+        # self.steer = 0
+        # self.accel = 0
         # self.accel = self.brake()
         # print(self.steer, self.accel)
 

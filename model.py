@@ -213,4 +213,4 @@ class ChaosModel(Model):
             # speed_reward, acceleration_cost, steering_cost, collision_cost))
         # return speed_reward + acceleration_cost + steering_cost + \
                # collision_cost + heading_cost
-        return speed_reward
+        return heading_cost + speed_reward
