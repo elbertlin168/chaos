@@ -2,8 +2,9 @@ import numpy as np
 from car import Car
 import random
 from Discretize import *
+from settings import *
 
-EPSILON = .5
+EPSILON = 0.9
 
 class QCar(Car):
 
@@ -30,7 +31,8 @@ class QCar(Car):
         for neighbor in self.get_neighbors():
             self.states.append(-1)
 
-        self.out_file = out_file
+        # self.out_file = out_file
+        self.out_file = 'train.out'
 
     def choose_action(self):
         super().choose_action()

@@ -19,8 +19,8 @@ def chaos_draw(agent):
     color = agent.color
     return {"Shape": "rect", "w": w, "h": h, "Filled": "true", "Color": color}
 
-n_slider = UserSettableParameter('slider', "Number of adversaries", 8, 2, 20, 1)
-w_slider = UserSettableParameter('slider', "Road width", 60, 10, 100, 10)
+n_slider = UserSettableParameter('slider', "Number of adversaries", 8, 1, 20, 1)
+w_slider = UserSettableParameter('slider', "Road width", 60, 10, 500, 10)
 a_choice = UserSettableParameter('choice', "Learning agent", "Basic",
                                  choices=["Basic", "Q Learn", "Deep Q Learn"])
 

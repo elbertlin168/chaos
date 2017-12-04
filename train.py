@@ -3,24 +3,39 @@ from model import ChaosModel, get_rewards_sum
 import numpy as np
 import argparse
 
-NUM_EPISODES = 3 #50
 NUM_STEPS_PER_EPISODE = 60
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train model')
-    
+
     parser.add_argument(
-        '--outfile',
-        type=str,
-        default = '',
-        help='name of file to write s, a, r, sp'
+         '--num_episodes', '-e',
+        type=int,
+        default = 1,
+        help='# of episodes'
     )
+
+    parser.add_argument(
+        '--num_adversaries', '-n', 
+        type=int,
+        default = 1,
+        help='num adversaries'
+    )
+
+    parser.add_argument(
+        '--agent_type','-t', 
+        type=str,
+        default = 'Q Learn',
+        help='Agent type')
 
     args = parser.parse_args()
 
     rewards = []
-    for i  in range(NUM_EPISODES):
-        model = ChaosModel(canvas_size=500, num_adversaries=3, road_width=60, out_file=args.outfile)
+    for i  in range(args.num_episodes):
+        model = ChaosModel(args.agent_type, 
+                           canvas_size=500, 
+                           num_adversaries=args.num_adversaries, 
+                           road_width=60)
         start_y = model.agent.pos[1]
         prev_y = start_y
         # count = 0
@@ -34,7 +49,7 @@ if __name__ == '__main__':
             # count = count + 1
 
         # print(count)
-        curr = model.get_rewards_sum()
+        curr = model.agent.rewards_sum
         rewards.append(curr)
         print("{:.0f}".format(curr))
 

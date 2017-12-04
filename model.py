@@ -8,6 +8,7 @@ from mesa.datacollection import DataCollector
 
 from car import Car
 from qcar import QCar
+
 from barrier import Barrier
 
 import util
@@ -20,8 +21,7 @@ class ChaosModel(Model):
     '''
 
     def __init__(self, agent_type, canvas_size=500, 
-                 num_adversaries=8, road_width=60, 
-                 out_file=None):
+                 num_adversaries=8, road_width=60):
         '''
         '''
         self.num_adversaries = num_adversaries
@@ -32,14 +32,14 @@ class ChaosModel(Model):
         self.cars = []
         self.agent = []
 
-        self.make_agents(canvas_size, out_file)
+        self.make_agents(canvas_size, agent_type)
         self.running = True
 
         self.datacollector = DataCollector(
             model_reporters={"Agent rewards sum": get_rewards_sum})
 
 
-    def make_agents(self, canvas_size, out_file):
+    def make_agents(self, canvas_size, agent_type):
         '''
         '''
 
@@ -51,13 +51,21 @@ class ChaosModel(Model):
         color = "Black"
         car_width = 6
         car_length = 12
-        qcar = QCar(0, self, pos, speed, heading, self.road_width, 
-            color, target_speed, car_length=car_length, car_width=car_width, 
-            out_file=out_file)
-        self.agent = qcar
-        self.cars.append(qcar)
-        self.space.place_agent(qcar, pos)
-        self.schedule.add(qcar)
+        if agent_type == 'Basic':
+            agent = Car(0, self, pos, speed, heading, self.road_width, 
+                color, target_speed, car_length=car_length, car_width=car_width)
+        elif agent_type == 'Q Learn':
+            agent = QCar(0, self, pos, speed, heading, self.road_width, 
+                color, target_speed, car_length=car_length, car_width=car_width)
+        # elif agent_type == 'Deep Q Learn':
+        #     print(agent_type)
+        #     agent = DeepQCar(0, self, pos, speed, heading, self.road_width, 
+        #         color, target_speed, car_length=car_length, car_width=car_width)
+
+        self.agent = agent
+        self.cars.append(agent)
+        self.space.place_agent(agent, pos)
+        self.schedule.add(agent)
 
 
         for i in range(1, self.num_adversaries + 1):
@@ -100,6 +108,7 @@ class ChaosModel(Model):
                 heading = np.radians(-90)
                 car_width = 6
                 car_length = 12
+                color = "Gray"
 
             # Initialize car
             car = Car(i, self, pos, speed, heading, self.road_width,
