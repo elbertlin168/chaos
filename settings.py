@@ -32,7 +32,3 @@ LEFT_TURN_PREFERENCE = 0.5
 
 # Minimum allowed speed in bicycle model
 MIN_SPEED = 0
-
-# The dimensions of the grid that make up the state
-STATE_SIZE = 5
-

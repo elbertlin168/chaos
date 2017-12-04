@@ -14,7 +14,6 @@ class QCar(Car):
                  pos,
                  speed,
                  heading,
-                 road_width,
                  color,
                  target_speed,
                  target_heading = TARGET_HEADING,
@@ -24,9 +23,8 @@ class QCar(Car):
                  steer_mag=STEER_MAG,
                  accuracy=ACCURACY,
                  safety_margin=SAFETY_MARGIN,
-                 car_width=CAR_WIDTH,
-                 car_length=CAR_LENGTH,
-                 state_size=STATE_SIZE,
+                 width=CAR_WIDTH,
+                 length=CAR_LENGTH,
                  Q = None, 
                  N = None
                  ):
@@ -37,7 +35,6 @@ class QCar(Car):
                  pos,
                  speed,
                  heading,
-                 road_width,
                  color,
                  target_speed,
                  target_heading = TARGET_HEADING,
@@ -47,13 +44,14 @@ class QCar(Car):
                  steer_mag=STEER_MAG,
                  accuracy=ACCURACY,
                  safety_margin=SAFETY_MARGIN,
-                 car_width=CAR_WIDTH,
-                 car_length=CAR_LENGTH,
-                 state_size=STATE_SIZE)
+                 width=CAR_WIDTH,
+                 length=CAR_LENGTH)
+
 
         # Discretization
         self.state_bins = Discretize()
-        self.state_bins.add_bins('relposx',     Bin(self.road_width, 1))
+
+        self.state_bins.add_bins('relposx',     Bin(self.model.road_width, 1))
         self.state_bins.add_bins('relposy',     Bin(self.model.space.y_max, 1))
         self.state_bins.add_bins('relvx',       Bin(1, 1))
         self.state_bins.add_bins('relvy',       Bin(2*self.target_speed, 1))
@@ -119,7 +117,7 @@ class QCar(Car):
         (self.steer, self.accel) = self.action_bins.unravel(action, 
                                                             ['steer', 'accel'])
 
-        print(self.Q)
+        # print(self.Q)
 
 
         # Change each action to random selection with probability EPSILON 

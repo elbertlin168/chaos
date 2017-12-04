@@ -6,28 +6,24 @@ from model import ChaosModel
 from SimpleContinuousModule import SimpleCanvas
 
 from barrier import Barrier
+from settings import AgentType
 
 canvas_size = 500
 
 def chaos_draw(agent):
-    if type(agent) is Barrier:
-        w = agent.width / canvas_size
-        h = agent.length / canvas_size
-    else:
-        w = agent.car_width / canvas_size
-        h = agent.car_length / canvas_size
+    w = agent.width / canvas_size
+    h = agent.length / canvas_size
     color = agent.color
     return {"Shape": "rect", "w": w, "h": h, "Filled": "true", "Color": color}
 
 n_slider = UserSettableParameter('slider', "Number of adversaries", 8, 1, 20, 1)
 w_slider = UserSettableParameter('slider', "Road width", 60, 10, 500, 10)
-a_choice = UserSettableParameter('choice', "Learning agent", "Basic",
-                                 choices=["Basic", "Q Learn", "Deep Q Learn"])
+a_choice = UserSettableParameter('choice', "Learning agent", AgentType.BASIC.value,
+                                 choices=[agent.value for agent in AgentType])
 e_dur = UserSettableParameter('slider', "Episode Duration", 50, 5, 200, 5)
 
 chaos_canvas = SimpleCanvas(chaos_draw, canvas_size, canvas_size)
 model_params = {
-    "canvas_size": canvas_size,
     "num_adversaries": n_slider,
     "road_width": w_slider,
     "agent_type": a_choice,
