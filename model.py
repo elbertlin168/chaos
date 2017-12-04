@@ -18,6 +18,9 @@ from settings import AgentType
 def get_rewards_sum(model):
     return model.rewards_sum
 
+def get_rewards_sum_log(model):
+    return -np.log(-get_rewards_sum(model))
+
 class ChaosModel(Model):
     '''
     The stochastic highway simulation model
@@ -43,14 +46,12 @@ class ChaosModel(Model):
         self.make_agents(AgentType(agent_type), Q, N)
         self.running = True
 
-        self.step_count = 0
-
-        self.rewards_sum = 0
         self.curr_reward = 0
 
+        self.reset()
 
         self.datacollector = DataCollector(
-            model_reporters={"Agent rewards sum": get_rewards_sum})
+            model_reporters={"Agent rewards sum": get_rewards_sum_log})
 
     def agent_start_state(self):
         pos = np.array((self.space.x_max/2, self.space.y_max-1))
@@ -68,6 +69,7 @@ class ChaosModel(Model):
         self.learn_agent.heading = heading
         self.space.place_agent(self.learn_agent, pos)
         self.step_count = 0
+        self.rewards_sum = -1
 
     def make_adversary(self, unique_id):
         # Initial speed and heading
