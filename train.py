@@ -63,6 +63,7 @@ def main(args):
 
     do_plot(args.out_file, out_file_count, rewards, Q, N)
     plt.savefig('reward_vs_iters.png', dpi=400)
+    print(Q)
     input("press Enter to continue...")
     
 

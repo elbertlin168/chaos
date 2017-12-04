@@ -211,6 +211,6 @@ class ChaosModel(Model):
 
         # print("speed reward {}, accel cost {}, steer cost {}, collision cost {}".format(
             # speed_reward, acceleration_cost, steering_cost, collision_cost))
-        return speed_reward + acceleration_cost + steering_cost + \
-               collision_cost + heading_cost
-        # return speed_reward
+        # return speed_reward + acceleration_cost + steering_cost + \
+               # collision_cost + heading_cost
+        return speed_reward
