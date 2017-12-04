@@ -13,7 +13,7 @@ class QCar(Car):
 
         # Discretization
         self.state_bins = Discretize()
-        self.state_bins.add_bins('relposx',     Bin(self.road_width, 10))
+        self.state_bins.add_bins('relposx',     Bin(self.model.road_width, 10))
         self.state_bins.add_bins('relposy',     Bin(self.model.space.y_max, 20))
         self.state_bins.add_bins('relvx',       Bin(1, 5))
         self.state_bins.add_bins('relvy',       Bin(2*self.target_speed, 5))
