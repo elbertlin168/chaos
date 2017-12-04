@@ -77,3 +77,16 @@ class Discretize():
             # discretes, sizes, discrete_1d))
 
         return discrete_1d
+
+    def size(self):
+        s = 1
+        for key, bins in self.bin_dict.items():
+            s *= bins.num_bins
+        return s
+
+    def unravel(self, discrete_1d, L):
+        sizes = []
+        for name in L:
+            sizes.append(self.bin_dict[name].num_bins)
+
+        return np.unravel_index(discrete_1d, tuple(sizes))

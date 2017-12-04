@@ -89,23 +89,25 @@ class Car(Agent):
         self.accel = accels[0]
 
     def reward(self):
-        steering_cost = self.heading * -200
-        acceleration_cost = self.accel * -100
+        heading_cost = np.abs(self.heading - self.target_heading) * -2
+        steering_cost = np.abs(self.steer) * -2
+        acceleration_cost = np.abs(self.accel) * -1
         speed_reward = 0
         if (self.speed > self.target_speed * 1.1):
-            speed_reward = -1000
+            speed_reward = -20
         elif (self.speed > self.target_speed * 1.05):
-            speed_reward = 200
+            speed_reward = -2
         elif (self.speed > self.target_speed * 0.90):
-            speed_reward = 600
+            speed_reward = 0
         else:
-            speed_reward = 100
+            speed_reward = -3
         # penalizes collisoins from the front more
-        collision_cost = self.collided * -50000
+        collision_cost = self.collided * -500
 
         # print("speed reward {}, accel cost {}, steer cost {}, collision cost {}".format(
             # speed_reward, acceleration_cost, steering_cost, collision_cost))
-        return speed_reward + acceleration_cost + steering_cost + collision_cost
+        # return speed_reward + acceleration_cost + steering_cost + collision_cost + heading_cost
+        return speed_reward
 
     def step(self):
         '''

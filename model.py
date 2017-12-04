@@ -28,19 +28,41 @@ class ChaosModel(Model):
     #################################################################
 
     def __init__(self, agent_type, width=500, height=500, 
-                 num_adversaries=8, road_width=60, frozen=True):
+                 num_adversaries=8, road_width=60, frozen=True,
+                 episode_duration=100,
+                 Q=None, N=None):
         self.num_adversaries = num_adversaries
         self.road_width = road_width
+        self.episode_duration = episode_duration
         self.schedule = RandomActivation(self)
 
         self.space = ContinuousSpace(width, height, True)
         self.cars = []
 
-        self.make_agents(AgentType(agent_type), frozen)
+        self.make_agents(AgentType(agent_type), frozen, Q, N)
         self.running = True
+
+        self.step_count = 0
+
 
         self.datacollector = DataCollector(
             model_reporters={"Agent rewards sum": get_rewards_sum})
+
+    def agent_start_state(self):
+        pos = np.array((self.space.x_max/2, self.space.y_max-1))
+
+        target_speed = 10
+        speed = target_speed
+        heading = np.radians(-90)
+        return (pos, target_speed, speed, heading)
+
+    def reset(self):
+        (pos, target_speed, speed, heading) = self.agent_start_state()
+
+        self.learn_agent.speed = speed
+        self.learn_agent.heading = heading
+        self.space.place_agent(self.learn_agent, pos)
+        self.step_count = 0
 
     def make_adversary(self, unique_id):
         # Initial speed and heading
@@ -80,30 +102,40 @@ class ChaosModel(Model):
         return Car(unique_id, self, pos, speed, heading, color,
                    target_speed=target_speed, width=width, length=length)
 
-    def make_learn_agent(self, agent_type, unique_id):
-        if agent_type == AgentType.DEEPQ:
+    def make_learn_agent(self, agent_type, unique_id, Q, N):
+        
+        (pos, target_speed, speed, heading) = self.agent_start_state()
+        width = 6
+        length = 12
+        color = "Black"
+
+        if agent_type == AgentType.QLEARN:
+            return QCar(unique_id, self, pos, speed, heading, color, 
+                        target_speed=target_speed, length=length, 
+                        width=width, Q=Q, N=N)
+
+        elif agent_type == AgentType.DEEPQ:
             car = DeepQCar
-        elif agent_type == AgentType.QLEARN:
-            car = QCar
+
         else: # agent_type == AgentType.BASIC
             car = Car
-        pos = np.array((self.space.x_max/2, self.space.y_max-1))
-        return car(unique_id, self, pos, 0, np.radians(-90), "Black",
-                  target_speed=10, width=6, length=12)
+
+        return car(unique_id, self, pos, speed, heading, color,
+                  target_speed=target_speed, width=width, length=length)
 
     def make_frozen(self, unique_id):
         pos = np.array((250, 250))
         return Car(unique_id, self, pos, 0, np.radians(-90), "Indigo",
                   target_speed=0, width=6, length=12)
 
-    def make_agents(self, agent_type, frozen):
+    def make_agents(self, agent_type, frozen, Q, N):
         '''
         Add all agents to model space
         '''
         # Car agents
         for i in range(0, self.num_adversaries + 1):
             if i == 0:
-                car = self.make_learn_agent(agent_type, i)
+                car = self.make_learn_agent(agent_type, i, Q, N)
             elif frozen:
                 car = self.make_frozen(i)
                 frozen = False
@@ -136,6 +168,11 @@ class ChaosModel(Model):
         return self.cars[0]
 
     def step(self):
+        self.step_count += 1
+        if self.step_count > self.episode_duration:
+            self.reset()
+
+
         self.datacollector.collect(self)
         # First loop through and have all cars choose an action
         # before the action is actually propagated forward
@@ -143,7 +180,8 @@ class ChaosModel(Model):
             car.choose_action()
 
         # Propagate forward one step based on chosen actions
-        self.schedule.step()
+        self.schedule.step()    
+
 
     def reward(self, agent):
         steering_cost = agent.steer * -200

@@ -20,12 +20,14 @@ n_slider = UserSettableParameter('slider', "Number of adversaries", 8, 1, 20, 1)
 w_slider = UserSettableParameter('slider', "Road width", 60, 10, 500, 10)
 a_choice = UserSettableParameter('choice', "Learning agent", AgentType.BASIC.value,
                                  choices=[agent.value for agent in AgentType])
+e_dur = UserSettableParameter('slider', "Episode Duration", 50, 5, 200, 5)
 
 chaos_canvas = SimpleCanvas(chaos_draw, canvas_size, canvas_size)
 model_params = {
     "num_adversaries": n_slider,
     "road_width": w_slider,
-    "agent_type": a_choice
+    "agent_type": a_choice,
+    "episode_duration": e_dur
 }
 
 chart = ChartModule([{"Label": "Agent rewards sum",
