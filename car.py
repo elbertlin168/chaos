@@ -124,9 +124,7 @@ class Car(Agent):
         # Move agent
         self.model.space.move_agent(self, next_pos)
 
-        next_reward = self.reward()
-        self.rewards_sum += next_reward
-        return next_reward
+        self.rewards_sum += self.reward()
 
         # print("id: {} steer: {} accel: {} speed: {} heading {}".format(
         #     self.unique_id, self.steer, self.accel, self.speed,

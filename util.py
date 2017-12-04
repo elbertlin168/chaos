@@ -27,3 +27,6 @@ def is_overlapping(x, y, width, length, others, margin=SAFETY_MARGIN):
             return True
 
     return False
+
+def get_bin(val, v_min, bin_size):
+    return int((val - v_min) // bin_size)

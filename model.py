@@ -22,14 +22,13 @@ class ChaosModel(Model):
     '''
     The stochastic highway simulation model
     '''
-    FROZEN = True      # Adds one frozen adversary if True
 
     #################################################################
     ## INITIALIZATION FUNCTIONS
     #################################################################
 
     def __init__(self, agent_type, width=500, height=500, 
-                 num_adversaries=8, road_width=60):
+                 num_adversaries=8, road_width=60, frozen=True):
         self.num_adversaries = num_adversaries
         self.road_width = road_width
         self.schedule = RandomActivation(self)
@@ -37,7 +36,7 @@ class ChaosModel(Model):
         self.space = ContinuousSpace(width, height, True)
         self.cars = []
 
-        self.make_agents(AgentType(agent_type))
+        self.make_agents(AgentType(agent_type), frozen)
         self.running = True
 
         self.datacollector = DataCollector(
@@ -97,7 +96,7 @@ class ChaosModel(Model):
         return Car(unique_id, self, pos, 0, np.radians(-90), "Indigo",
                   target_speed=0, width=6, length=12)
 
-    def make_agents(self, agent_type):
+    def make_agents(self, agent_type, frozen):
         '''
         Add all agents to model space
         '''
@@ -105,9 +104,9 @@ class ChaosModel(Model):
         for i in range(0, self.num_adversaries + 1):
             if i == 0:
                 car = self.make_learn_agent(agent_type, i)
-            elif ChaosModel.FROZEN:
+            elif frozen:
                 car = self.make_frozen(i)
-                ChaosModel.FROZEN = False
+                frozen = False
             else:
                 car = self.make_adversary(i)
             if car is None:
