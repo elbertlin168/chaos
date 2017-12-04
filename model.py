@@ -21,33 +21,51 @@ class ChaosModel(Model):
     '''
 
     def __init__(self, agent_type, canvas_size=500, 
-                 num_adversaries=8, road_width=60):
+                 num_adversaries=8, road_width=60, 
+                 episode_duration=200,
+                 Q=None, N=None):
         '''
         '''
         self.num_adversaries = num_adversaries
         self.road_width = road_width
+        self.episode_duration = episode_duration
         self.schedule = RandomActivation(self)
 
         self.space = ContinuousSpace(canvas_size, canvas_size, True)
         self.cars = []
         self.agent = []
 
-        self.make_agents(canvas_size, agent_type)
+        self.make_agents(canvas_size, agent_type, Q, N)
         self.running = True
+
+        self.step_count = 0
 
         self.datacollector = DataCollector(
             model_reporters={"Agent rewards sum": get_rewards_sum})
 
 
-    def make_agents(self, canvas_size, agent_type):
+    def agent_start_state(self):
+        pos = np.array((self.space.x_max/2, self.space.y_max-1))
+        target_speed = 10
+        speed = target_speed
+        heading = np.radians(-90)
+        return (pos, target_speed, speed, heading)
+
+    def reset(self):
+
+        (pos, target_speed, speed, heading) = self.agent_start_state()
+
+        self.agent.speed = speed
+        self.agent.heading = heading
+        self.space.place_agent(self.agent, pos)
+        self.step_count = 0
+
+    def make_agents(self, canvas_size, agent_type, Q, N):
         '''
         '''
 
         # Qcar
-        pos = np.array((self.space.x_max/2, self.space.y_max-1))
-        speed = 0
-        heading = np.radians(-90)
-        target_speed = 10
+        (pos, target_speed, speed, heading) = self.agent_start_state()
         color = "Black"
         car_width = 6
         car_length = 12
@@ -56,7 +74,8 @@ class ChaosModel(Model):
                 color, target_speed, car_length=car_length, car_width=car_width)
         elif agent_type == 'Q Learn':
             agent = QCar(0, self, pos, speed, heading, self.road_width, 
-                color, target_speed, car_length=car_length, car_width=car_width)
+                color, target_speed, car_length=car_length, car_width=car_width,
+                Q=Q, N=N)
         # elif agent_type == 'Deep Q Learn':
         #     print(agent_type)
         #     agent = DeepQCar(0, self, pos, speed, heading, self.road_width, 
@@ -141,6 +160,11 @@ class ChaosModel(Model):
 
 
     def step(self):
+        self.step_count += 1
+        if self.step_count > self.episode_duration:
+            self.reset()
+
+
         self.datacollector.collect(self)
         # First loop through and have all cars choose an action
         # before the action is actually propagated forward
@@ -149,3 +173,4 @@ class ChaosModel(Model):
 
         # Propagate forward one step based on chosen actions
         self.schedule.step()    
+
