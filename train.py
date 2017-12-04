@@ -2,13 +2,15 @@ from model import ChaosModel, get_rewards_sum
 
 import numpy as np
 import sys, argparse
+import random
 
 
 def main(deepq):
     agent_type = "Deep Q Learn" if deepq else "Q Learn"
     rewards = []
     for i  in range(50):
-        model = ChaosModel(agent_type, num_adversaries=1)
+        n = random.randint(1,100) if deepq else 1
+        model = ChaosModel(agent_type, num_adversaries=n)
         start_y = model.learn_agent.pos[1]
         prev_y = start_y
         # count = 0

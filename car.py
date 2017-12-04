@@ -51,7 +51,6 @@ class Car(Agent):
         self.accuracy = accuracy
         self.safety_margin = safety_margin
 
-
         # Bicycle model variables
         self.lr = 1
         self.lf = 1
