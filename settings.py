@@ -2,9 +2,11 @@ import numpy as np
 from enum import Enum
 
 class AgentType(Enum):
-	BASIC = "Basic"
-	QLEARN = "Q Learn"
-	DEEPQ = "Deep Q Learn"
+    BASIC = "Basic"
+    QLEARN = "Q Learn"
+    DEEPQ = "Deep Q Learn"
+
+Actions = Enum("Actions", "S_M S_A S_B L_M L_A L_B R_M R_A R_B")
 
 
 # Default car movement

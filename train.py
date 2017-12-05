@@ -1,11 +1,46 @@
 from model import ChaosModel, get_rewards_sum
+from mesa.batchrunner import BatchRunner
 
 import numpy as np
 import argparse
+
 from matplotlib import pyplot as plt
 import os
 import pickle
 import random
+
+from collections import deque
+
+BATCH_SIZE = 32
+
+
+class DeepQBatchRunner(BatchRunner):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.memory = deque(maxlen=2000)
+        self.epsilon = 1.0       # exploration rate
+        self.epsilon_min = 0.01
+        self.epsilon_decay = 0.995
+
+    def run_model(self, model):
+        agent = model.learn_agent
+        agent.epsilon = self.epsilon
+        for _ in range(4):
+            agent.update_state_grid()
+        state = np.copy(agent.current_state)
+        while model.running and model.schedule.steps < self.max_steps:
+            if model.schedule.steps >= 4:
+                state = np.copy(agent.current_state)
+            model.step()
+            if model.schedule.steps >= 4:
+                next_state = np.copy(agent.current_state)
+                self.memory.append((state, agent.action, agent.reward,
+                                    next_state, model.running))
+            if len(self.memory) > BATCH_SIZE:
+                agent.replay(self.memory, BATCH_SIZE)
+                if self.epsilon > self.epsilon_min:
+                    self.epsilon *= self.epsilon_decay
+        agent.save()
 
 
 def do_plot(out_file, out_file_count, rewards):
@@ -16,8 +51,8 @@ def do_plot(out_file, out_file_count, rewards):
     plt.draw()
     plt.pause(0.001)
 
-def main(args):
-    agent_type = "Deep Q Learn" if args.deepq else "Q Learn"
+def train_qlearn(args):
+    agent_type = "Q Learn"
 
     rewards = np.array(())
 
@@ -38,7 +73,7 @@ def main(args):
 
     out_file_count = 0
     for i  in range(args.num_episodes):
-        n = random.randint(1,100) if args.deepq else args.num_adversaries
+        n = args.num_adversaries
         model = ChaosModel(agent_type, 
                            canvas_size=500, 
                            num_adversaries=n, 
@@ -65,7 +100,19 @@ def main(args):
     do_plot(args.out_file, out_file_count, rewards)
     plt.savefig('reward_vs_iters.png', dpi=400)
     input("press Enter to continue...")
-    
+
+def train_deepq(args):
+    fixed_params = {"agent_type": "Deep Q Learn",
+                    "frozen": False, "epsilon": 1.0,
+                    "episode_duration": 1000}
+    variable_params = {"num_adversaries": range(10, 11, 1)}
+    batch_run = DeepQBatchRunner(ChaosModel,
+                                 fixed_parameters=fixed_params,
+                                 variable_parameters=variable_params,
+                                 iterations=args.num_episodes,
+                                 max_steps=500)
+    batch_run.run_all()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train model')
@@ -77,7 +124,10 @@ if __name__ == "__main__":
                         help="train with Deep Q Learning agent")
     parser.add_argument('--out_file','-o', type=str,default = 'train.p',
                         help='Name of file to save Q logs')
-
     parser.add_argument('--load_pickle_file','-l', type=str,default = None,
                         help='Name of file to save Q logs')
-    main(parser.parse_args())
+    args = parser.parse_args()
+    if args.deepq:
+        train_deepq(args)
+    else:
+        train_qlearn(args)

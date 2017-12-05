@@ -88,7 +88,7 @@ class Car(Agent):
         self.steer = steers[0]
         self.accel = accels[0]
 
-    def reward(self):
+    def get_reward(self):
         heading_cost = np.abs(self.heading - self.target_heading) * -2
         steering_cost = np.abs(self.steer) * -2
         acceleration_cost = np.abs(self.accel) * -1
@@ -126,7 +126,7 @@ class Car(Agent):
         # Move agent
         self.model.space.move_agent(self, next_pos)
 
-        self.rewards_sum += self.reward()
+        self.rewards_sum += self.get_reward()
 
         # print("id: {} steer: {} accel: {} speed: {} heading {}".format(
         #     self.unique_id, self.steer, self.accel, self.speed,
@@ -276,12 +276,7 @@ class Car(Agent):
         return 0
 
     def get_neighbors(self):
-        neighbors = []
-        for car in self.model.cars:
-            if car.unique_id != self.unique_id:
-                neighbors.append(car)
-
-        return neighbors
+        return [car for car in self.model.cars if car.unique_id != self.unique_id]
 
     def bicycle_lookahead(self, steers, accels, accuracy):
         '''

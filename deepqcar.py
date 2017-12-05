@@ -2,15 +2,14 @@ import random
 import numpy as np
 from car import Car
 
-from collections import deque
 from keras.models import Sequential
-from keras.layers import Dense, Conv2D
+from keras.layers import Dense, Conv2D, Flatten
 from keras.optimizers import Adam
 
 from util import get_bin
+from settings import Actions
 
-STATE_SHAPE = (100, 100, 4)
-ACTION_SPACE = 9
+STATE_SHAPE = (1, 100, 100, 4)
 WEIGHT_FILE = "chaos-dqn.h5"
 
 # Field of view, Manhattan distance
@@ -18,67 +17,88 @@ FOV = 25
 
 class DeepQCar(Car):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, epsilon=1.0, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.state_shape = STATE_SHAPE
         self.current_state = np.zeros(self.state_shape)
+        self.action = random.choice(list(Actions))
 
-        self.memory = deque(maxlen=2000)
+        # self.memory = deque(maxlen=2000)
         self.gamma = 0.95         # discount rate
-        self.epsilon = 1.0        # exploration rate
-        self.epsilon_min = 0.01
-        self.epsilon_decay = 0.995
+        self.epsilon = epsilon    # exploration rate
+        # self.epsilon_min = 0.01
+        # self.epsilon_decay = 0.995
         self.learning_rate = 0.001
         self.nn = self._build_nn()
 
     def _build_nn(self):
         # Neural Net for Deep-Q learning Model
         nn = Sequential()
-        nn.add(Conv2D(16, 8, strides=4, activation='relu', input_shape=self.state_shape))
+        nn.add(Conv2D(16, 8, strides=4, activation='relu',
+                      input_shape=self.state_shape[1:]))
         nn.add(Conv2D(32, 4, strides=2, activation='relu'))
+        nn.add(Flatten())
         nn.add(Dense(256, activation='relu'))
-        nn.add(Dense(ACTION_SPACE, activation='linear'))
+        nn.add(Dense(len(Actions), activation='linear'))
         nn.compile(loss='mse',
-                      optimizer=Adam(lr=self.learning_rate))
+                   optimizer=Adam(lr=self.learning_rate))
         try:
-            open(WEIGHT_FILE)
-            self.load(WEIGHT_FILE)
+            open(WEIGHT_FILE, "r")
+            nn.load_weights(WEIGHT_FILE)
+        except:
+            pass
         return nn
 
-    def load(self, name):
-        self.nn.load_weights(name)
-
-    def save(self, name):
+    def save(self, name=WEIGHT_FILE):
         self.nn.save_weights(name)
 
-    def remember(self, state, action, reward, next_state):
-        self.memory.append((state, action, reward, next_state))
+    # def remember(self, state, action, reward, next_state, running):
+    #     self.memory.append((state, action, reward, next_state, running))
 
-    def replay(self, batch_size):
-        minibatch = random.sample(self.memory, batch_size)
-        for state, action, reward, next_state in minibatch:
+    def replay(self, memory, batch_size):
+        minibatch = np.array(random.sample(memory, batch_size))
+        for state, action, reward, next_state, running in minibatch:
             target = reward
-            # if not self.model.is_terminal(next_state):
-            #     target = (reward + self.gamma *
-            #               np.amax(self.model.reward(next_state)))
-            # target_f = self.model.predict(state)
-            # target_f[0][action] = target
-            # self.nn.fit(state, target_f, epochs=1, verbose=0)
-        if self.epsilon > self.epsilon_min:
-            self.epsilon *= self.epsilon_decay
+            if running:
+                target = reward + self.gamma * \
+                         np.amax(self.nn.predict(next_state)[0])
+            target_f = self.nn.predict(state)
+            target_f[0][action.value - 1] = target
+            self.nn.fit(state, target_f, epochs=1, verbose=0)
+        # if self.epsilon > self.epsilon_min:
+        #     self.epsilon *= self.epsilon_decay
 
     def choose_action(self):
-        super().choose_action()
+        if random.random() <= self.epsilon:
+            self.action = random.choice(list(Actions))
+        else:
+            act_rewards = self.nn.predict(self.current_state)
+            self.action = Actions(np.argmax(act_rewards[0]) + 1)
+
+        if self.action.value % 3 == 1:           # Actions.{X}_M
+            self.accel = self.maintain_speed()
+        elif self.action.value % 3 == 2:         # Actions.{X}_A
+            self.accel = self.accelerate()
+        else:                                    # Actions.{X}_B
+            self.accel = self.brake()
+
+        if (self.action.value - 1) // 3 == 0:    # Actions.S_{X}
+            self.steer = self.go_straight()
+        elif (self.action.value - 1) // 3 == 1:  # Actions.L_{X}
+            self.steer = self.turn_left()
+        else:                                    # Actions.R_{X}
+            self.steer = self.turn_right()
 
     def step(self):
+        self.reward = self.model.reward(self)
         self.update_state_grid()
         super().step()
 
     def current_grid(self):
         # Visualized as if we placed a discrete grid on top of model space,
         # centered on our agent. m is row (y value), n is column (x value)
-        m, n = self.state_shape[:2]
+        m, n = self.state_shape[1:3]
         grid = np.zeros((m, n))
         x_min = self.pos[0] - FOV
         x_bin_size = FOV * 2 / n
@@ -113,5 +133,5 @@ class DeepQCar(Car):
         return grid
 
     def update_state_grid(self):
-        self.current_state = self.current_state[:,:,[3,0,1,2]]
-        self.current_state[:,:,0] = self.current_grid()
+        self.current_state = self.current_state[:,:,:,[3,0,1,2]]
+        self.current_state[:,:,:,0] = self.current_grid()

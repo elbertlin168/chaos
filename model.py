@@ -29,7 +29,7 @@ class ChaosModel(Model):
 
     def __init__(self, agent_type, width=500, height=500, 
                  num_adversaries=8, road_width=60, frozen=True,
-                 episode_duration=100,
+                 epsilon=0, episode_duration=100,
                  Q=None, N=None):
         self.num_adversaries = num_adversaries
         self.road_width = road_width
@@ -39,18 +39,15 @@ class ChaosModel(Model):
         self.space = ContinuousSpace(width, height, True)
         self.cars = []
 
-        self.make_agents(AgentType(agent_type), frozen, Q, N)
+        self.make_agents(AgentType(agent_type), frozen, epsilon, Q, N)
         self.running = True
-
         self.step_count = 0
-
 
         self.datacollector = DataCollector(
             model_reporters={"Agent rewards sum": get_rewards_sum})
 
     def agent_start_state(self):
         pos = np.array((self.space.x_max/2, self.space.y_max-1))
-
         target_speed = 10
         speed = target_speed
         heading = np.radians(-90)
@@ -102,8 +99,7 @@ class ChaosModel(Model):
         return Car(unique_id, self, pos, speed, heading, color,
                    target_speed=target_speed, width=width, length=length)
 
-    def make_learn_agent(self, agent_type, unique_id, Q, N):
-        
+    def make_learn_agent(self, agent_type, unique_id, epsilon, Q, N):
         (pos, target_speed, speed, heading) = self.agent_start_state()
         width = 6
         length = 12
@@ -115,12 +111,12 @@ class ChaosModel(Model):
                         width=width, Q=Q, N=N)
 
         elif agent_type == AgentType.DEEPQ:
-            car = DeepQCar
+            return DeepQCar(unique_id, self, pos, speed, heading, color,
+                            target_speed=target_speed, width=width, length=length,
+                            epsilon=epsilon)
 
         else: # agent_type == AgentType.BASIC
-            car = Car
-
-        return car(unique_id, self, pos, speed, heading, color,
+            return Car(unique_id, self, pos, speed, heading, color,
                   target_speed=target_speed, width=width, length=length)
 
     def make_frozen(self, unique_id):
@@ -128,14 +124,14 @@ class ChaosModel(Model):
         return Car(unique_id, self, pos, 0, np.radians(-90), "Indigo",
                   target_speed=0, width=6, length=12)
 
-    def make_agents(self, agent_type, frozen, Q, N):
+    def make_agents(self, agent_type, frozen, epsilon, Q, N):
         '''
         Add all agents to model space
         '''
         # Car agents
         for i in range(0, self.num_adversaries + 1):
             if i == 0:
-                car = self.make_learn_agent(agent_type, i, Q, N)
+                car = self.make_learn_agent(agent_type, i, epsilon, Q, N)
             elif frozen:
                 car = self.make_frozen(i)
                 frozen = False
@@ -169,9 +165,9 @@ class ChaosModel(Model):
 
     def step(self):
         self.step_count += 1
-        if self.step_count > self.episode_duration:
+        if self.step_count > self.episode_duration and \
+                type(self.learn_agent) is not DeepQCar:
             self.reset()
-
 
         self.datacollector.collect(self)
         # First loop through and have all cars choose an action
@@ -180,22 +176,32 @@ class ChaosModel(Model):
             car.choose_action()
 
         # Propagate forward one step based on chosen actions
-        self.schedule.step()    
-
+        self.schedule.step()
+        agent = self.learn_agent
+        if type(self.learn_agent) is DeepQCar and \
+                util.is_overlapping(agent.pos[0], agent.pos[1],
+                                    agent.width, agent.length,
+                                    agent.get_neighbors(), margin=0):
+            self.running = False
 
     def reward(self, agent):
-        steering_cost = agent.steer * -200
-        acceleration_cost = agent.accel * -100
-        speed_reward = 0
-        if (agent.speed > agent.target_speed * 1.1):
-            speed_reward = -1000
-        elif (agent.speed > agent.target_speed * 1.05):
-            speed_reward = 200
-        elif (agent.speed > agent.target_speed * 0.90):
-            speed_reward = 600
-        else:
-            speed_reward = 100
-        # penalizes collisoins from the front more
-        collision_cost = agent.collided * -50000
-
-        return speed_reward + acceleration_cost + steering_cost + collision_cost
+        # Unit negative reward for collision
+        if util.is_overlapping(agent.pos[0], agent.pos[1],
+                               agent.width, agent.length,
+                               agent.get_neighbors(), margin=0):
+            return -1
+        # Unit reward for staying at target speed and heading
+        # Linearly decreases based on magnitude of difference from actual
+        # Reward of 0 for staying at average (y) speed of all cars,
+        #     negative for below
+        # Assumes target speed > average speed
+        # Reward of 0 for changing lanes within one time step (TEST THIS)
+        # Assumes actions have no cost, but rather cause cost by changing
+        #     resulting velocity (THIS MAY CHANGE)
+        average_speed = np.mean([car.speed * np.sin(car.heading) \
+                                 for car in self.cars])
+        agent_vel = agent.vel_components()
+        # x_cost = abs(agent_vel[0]) / 10
+        y_cost = abs(agent_vel[1] - agent.target_speed) / \
+                 (agent.target_speed - average_speed)
+        return max(1 - y_cost, -1)
