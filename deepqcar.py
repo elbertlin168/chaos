@@ -91,7 +91,7 @@ class DeepQCar(Car):
             self.steer = self.turn_right()
 
     def step(self):
-        self.reward = self.model.reward(self)
+        self.reward = self.model.deepq_reward(self)
         self.update_state_grid()
         super().step()
 

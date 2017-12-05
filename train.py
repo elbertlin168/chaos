@@ -43,7 +43,7 @@ class DeepQBatchRunner(BatchRunner):
         agent.save()
 
 
-def do_plot(out_file, out_file_count, rewards):
+def do_plot(out_file, out_file_count, rewards, Q, N):
     curr_out_file = "{}{:04d}".format(out_file, out_file_count)
     pickle.dump([Q, N, rewards], open(curr_out_file, 'wb'))
     out_file_count += 1
@@ -75,30 +75,30 @@ def train_qlearn(args):
     for i  in range(args.num_episodes):
         n = args.num_adversaries
         model = ChaosModel(agent_type, 
-                           canvas_size=500, 
                            num_adversaries=n, 
                            road_width=60, 
                            Q=Q, N=N)
 
-        for j in range(NUM_STEPS_PER_EPISODE):
+        for j in range(args.num_steps_per_episode):
             model.step()
         
-        Q = model.agent.Q
-        N = model.agent.N
+        Q = model.learn_agent.Q
+        N = model.learn_agent.N
 
-        curr = model.get_rewards_sum()
+        curr = get_rewards_sum(model)
         rewards = np.append(rewards, curr)
         print("Curr reward: {:8.0f}, Max reward: {:8.0f}, Max Q: {:8.0f}, Min Q: {:8.0f}".format(
             curr, rewards.max(), Q.max(), Q.min()))
 
-        if rewards.size % 100 == 0:
-            do_plot(args.out_file, out_file_count, rewards)
+        if rewards.size % args.plot_freq == 0:
+            do_plot(args.out_file, out_file_count, rewards, Q, N)
 
     rewards = np.array(rewards)
     print("average reward: {:.0f}".format(np.mean(rewards)))
 
-    do_plot(args.out_file, out_file_count, rewards)
+    do_plot(args.out_file, out_file_count, rewards, Q, N)
     plt.savefig('reward_vs_iters.png', dpi=400)
+    print(Q)
     input("press Enter to continue...")
 
 def train_deepq(args):
@@ -120,12 +120,16 @@ if __name__ == "__main__":
                         help="number of episodes to train for")
     parser.add_argument("-n", "--num_adversaries", type=int, default=1,
                         help="number of adversaries to add")
+    parser.add_argument("-t", "--num_steps_per_episode", type=int, default=50,
+                        help="number of steps per episode")
     parser.add_argument("-d", "--deepq", action="store_true",
                         help="train with Deep Q Learning agent")
-    parser.add_argument('--out_file','-o', type=str,default = 'train.p',
+    parser.add_argument('-o', '--out_file', type=str,default = 'train.p',
                         help='Name of file to save Q logs')
     parser.add_argument('--load_pickle_file','-l', type=str,default = None,
                         help='Name of file to save Q logs')
+    parser.add_argument('-p', '--plot_freq', type=int,default = 100,
+                        help='How often to plot')
     args = parser.parse_args()
     if args.deepq:
         train_deepq(args)

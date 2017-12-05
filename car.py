@@ -57,7 +57,6 @@ class Car(Agent):
         self.steer = 0
 
         self.collided = 0
-        self.rewards_sum = 0
 
     def choose_action(self):
         '''
@@ -88,27 +87,6 @@ class Car(Agent):
         self.steer = steers[0]
         self.accel = accels[0]
 
-    def get_reward(self):
-        heading_cost = np.abs(self.heading - self.target_heading) * -2
-        steering_cost = np.abs(self.steer) * -2
-        acceleration_cost = np.abs(self.accel) * -1
-        speed_reward = 0
-        if (self.speed > self.target_speed * 1.1):
-            speed_reward = -20
-        elif (self.speed > self.target_speed * 1.05):
-            speed_reward = -2
-        elif (self.speed > self.target_speed * 0.90):
-            speed_reward = 0
-        else:
-            speed_reward = -3
-        # penalizes collisoins from the front more
-        collision_cost = self.collided * -500
-
-        # print("speed reward {}, accel cost {}, steer cost {}, collision cost {}".format(
-            # speed_reward, acceleration_cost, steering_cost, collision_cost))
-        # return speed_reward + acceleration_cost + steering_cost + collision_cost + heading_cost
-        return speed_reward
-
     def step(self):
         '''
         Uses chosen actions (steer and accel) to propagate state
@@ -125,8 +103,6 @@ class Car(Agent):
 
         # Move agent
         self.model.space.move_agent(self, next_pos)
-
-        self.rewards_sum += self.get_reward()
 
         # print("id: {} steer: {} accel: {} speed: {} heading {}".format(
         #     self.unique_id, self.steer, self.accel, self.speed,

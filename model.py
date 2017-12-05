@@ -16,7 +16,10 @@ from settings import AgentType
 
 
 def get_rewards_sum(model):
-    return model.learn_agent.rewards_sum
+    return model.rewards_sum
+
+def get_rewards_sum_log(model):
+    return -np.log(-get_rewards_sum(model))
 
 class ChaosModel(Model):
     '''
@@ -41,13 +44,17 @@ class ChaosModel(Model):
 
         self.make_agents(AgentType(agent_type), frozen, epsilon, Q, N)
         self.running = True
+
         self.step_count = 0
+        self.curr_reward = 0
+
+        self.reset()
 
         self.datacollector = DataCollector(
-            model_reporters={"Agent rewards sum": get_rewards_sum})
+            model_reporters={"Agent rewards sum": get_rewards_sum_log})
 
     def agent_start_state(self):
-        pos = np.array((self.space.x_max/2, self.space.y_max-1))
+        pos = np.array((self.space.x_max/2, self.space.y_max/2+100))
         target_speed = 10
         speed = target_speed
         heading = np.radians(-90)
@@ -55,11 +62,16 @@ class ChaosModel(Model):
 
     def reset(self):
         (pos, target_speed, speed, heading) = self.agent_start_state()
-
+        # speed = util.rand_min_max(target_speed*.8, target_speed*1.2)
+        # speed = util.rand_min_max(6,14)
+        # speed = 0
+        # heading = util.rand_min_max(np.radians(-89),np.radians(-91))
+        # heading = np.radians(-85)
         self.learn_agent.speed = speed
         self.learn_agent.heading = heading
-        self.space.place_agent(self.learn_agent, pos)
+        self.space.move_agent(self.learn_agent, pos)
         self.step_count = 0
+        self.rewards_sum = -1
 
     def make_adversary(self, unique_id):
         # Initial speed and heading
@@ -120,7 +132,7 @@ class ChaosModel(Model):
                   target_speed=target_speed, width=width, length=length)
 
     def make_frozen(self, unique_id):
-        pos = np.array((250, 250))
+        pos = np.array((self.space.x_max/2, self.space.y_max/2))
         return Car(unique_id, self, pos, 0, np.radians(-90), "Indigo",
                   target_speed=0, width=6, length=12)
 
@@ -177,6 +189,9 @@ class ChaosModel(Model):
 
         # Propagate forward one step based on chosen actions
         self.schedule.step()
+        self.curr_reward = self.reward()
+        self.rewards_sum += self.curr_reward
+
         agent = self.learn_agent
         if type(self.learn_agent) is DeepQCar and \
                 util.is_overlapping(agent.pos[0], agent.pos[1],
@@ -184,7 +199,48 @@ class ChaosModel(Model):
                                     agent.get_neighbors(), margin=0):
             self.running = False
 
-    def reward(self, agent):
+    def reward(self):
+        agent = self.learn_agent
+        # heading_cost = np.abs(agent.heading - agent.target_heading) * -2
+        # steering_cost = np.abs(agent.steer) * -2
+        # acceleration_cost = np.abs(agent.accel) * -1
+        vy = -agent.speed * np.sin(agent.heading)
+        speed_reward = 0
+        if (vy > agent.target_speed * 1.1):
+            speed_reward = -20
+        elif (vy > agent.target_speed * 1.05):
+            speed_reward = -2
+        elif (vy > agent.target_speed * 0.90):
+            speed_reward = 0
+        else:
+            speed_reward = -3
+        # penalizes collisoins from the front more
+        collision_cost = agent.collided * -500
+
+        # Alternate speed reward
+        speed_reward = np.abs(vy - agent.target_speed) * -1
+        if speed_reward > -0.5:
+            speed_reward = 0
+        elif speed_reward < -agent.target_speed/2:
+            speed_reward = -20
+
+        # Try to reward position
+        # pos_cost = 0
+        # if agent.pos[1] < self.space.y_max/2 - 70 or vy < agent.target_speed/2:
+        #     pos_cost = -10 
+        # print(pos_reward)
+
+        # print("speed reward {}, accel cost {}, steer cost {}, collision cost {}".format(
+            # speed_reward, acceleration_cost, steering_cost, collision_cost))
+        # return speed_reward + acceleration_cost + steering_cost + \
+               # collision_cost + heading_cost
+        # print(speed_reward, collision_cost, heading_cost)
+
+        # print(vy, agent.target_speed, speed_reward, collision_cost, a, agent.steer, agent.accel)
+
+        return speed_reward + collision_cost
+
+    def deepq_reward(self, agent):
         # Unit negative reward for collision
         if util.is_overlapping(agent.pos[0], agent.pos[1],
                                agent.width, agent.length,
