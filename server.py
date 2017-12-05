@@ -16,11 +16,11 @@ def chaos_draw(agent):
     color = agent.color
     return {"Shape": "rect", "w": w, "h": h, "Filled": "true", "Color": color}
 
-n_slider = UserSettableParameter('slider', "Number of adversaries", 1, 1, 20, 1)
+n_slider = UserSettableParameter('slider', "Number of adversaries", 8, 1, 20, 1)
 w_slider = UserSettableParameter('slider', "Road width", 60, 10, 500, 10)
-a_choice = UserSettableParameter('choice', "Learning agent", AgentType.QLEARN.value,
+a_choice = UserSettableParameter('choice', "Learning agent", AgentType.BASIC.value,
                                  choices=[agent.value for agent in AgentType])
-e_dur = UserSettableParameter('slider', "Episode Duration", 50, 5, 200, 5)
+e_dur = UserSettableParameter('slider', "Episode Duration", 60, 5, 200, 5)
 
 chaos_canvas = SimpleCanvas(chaos_draw, canvas_size, canvas_size)
 model_params = {

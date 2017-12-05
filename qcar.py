@@ -52,12 +52,12 @@ class QCar(Car):
         # Discretization
         self.state_bins = Discretize()
 
-        self.state_bins.add_bins('relposx',     Bin(self.model.road_width, 1))
-        self.state_bins.add_bins('relposy',     Bin(self.model.space.y_max, 1))
+        self.state_bins.add_bins('relposx',     Bin(self.model.road_width, 6))
+        self.state_bins.add_bins('relposy',     Bin(self.model.space.y_max/2, 6))
         self.state_bins.add_bins('relvx',       Bin(1, 1))
-        self.state_bins.add_bins('relvy',       Bin(2*self.target_speed, 1))
-        self.state_bins.add_bins('heading_err', Bin(np.radians(10), 4))
-        self.state_bins.add_bins('speed_err',   Bin(0.5*self.target_speed, 4))
+        self.state_bins.add_bins('relvy',       Bin(self.target_speed, 1))
+        self.state_bins.add_bins('heading_err', Bin(np.radians(10), 8))
+        self.state_bins.add_bins('speed_err',   Bin(0.5*self.target_speed,8))
 
         self.action_bins = Discretize()
         self.action_bins.add_bins('steer', Bin(self.steer_mag/2, 3))
@@ -81,10 +81,10 @@ class QCar(Car):
         self.Q = Q
         self.N = N
 
-        # Q_logs = pickle.load(open('train_sh.p', 'rb'))
-        # self.Q = Q_logs[0]
-        # self.N = Q_logs[1]
-        # rewards = Q_logs[2]
+        Q_logs = pickle.load(open('train.p0000', 'rb'))
+        self.Q = Q_logs[0]
+        self.N = Q_logs[1]
+        rewards = Q_logs[2]
 
         # self.alpha = 1
         self.discount = 0.9
@@ -115,12 +115,13 @@ class QCar(Car):
         # print(prev_states, self.states, prev_action)
         # print(self.Q)
         # print(self.N.sum())
-        if self.N.sum().sum() > 1000:
+        if self.N.sum().sum() > 9000:
             EPSILON = 1.0
         else:
-            EPSILON = 0.5
+            EPSILON = 0.9
 
-        print(self.N.sum(), EPSILON)
+        if self.N.sum() % 100 == 0:
+            print(self.N.sum(), EPSILON)
 
 
         # action = self.Q[self.states[0]].argmax()
@@ -141,13 +142,17 @@ class QCar(Car):
         self.accel = accel_actions[accel_bin]
 
 
+
+        # if self.N.sum().sum() < 5000:
+        #     super().choose_action()
+
         if random.random() > EPSILON:
             # print('random steer')
             self.steer = random.choice(steer_actions)
 
-        if random.random() > EPSILON:
             # print('random accel')
             self.accel = random.choice(accel_actions)
+
 
         # self.steer = 0
         # self.accel = 0

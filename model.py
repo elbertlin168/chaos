@@ -54,7 +54,7 @@ class ChaosModel(Model):
             model_reporters={"Agent rewards sum": get_rewards_sum_log})
 
     def agent_start_state(self):
-        pos = np.array((self.space.x_max/2, self.space.y_max-1))
+        pos = np.array((self.space.x_max/2, self.space.y_max/2+100))
 
         target_speed = 10
         speed = target_speed
@@ -64,7 +64,11 @@ class ChaosModel(Model):
     def reset(self):
 
         (pos, target_speed, speed, heading) = self.agent_start_state()
-
+        # speed = util.rand_min_max(target_speed*.8, target_speed*1.2)
+        # speed = util.rand_min_max(6,14)
+        # speed = 0
+        # heading = util.rand_min_max(np.radians(-89),np.radians(-91))
+        # heading = np.radians(-85)
         self.learn_agent.speed = speed
         self.learn_agent.heading = heading
         self.space.place_agent(self.learn_agent, pos)
@@ -131,7 +135,7 @@ class ChaosModel(Model):
                   target_speed=target_speed, width=width, length=length)
 
     def make_frozen(self, unique_id):
-        pos = np.array((250, 250))
+        pos = np.array((self.space.x_max/2, self.space.y_max/2))
         return Car(unique_id, self, pos, 0, np.radians(-90), "Indigo",
                   target_speed=0, width=6, length=12)
 
@@ -194,23 +198,41 @@ class ChaosModel(Model):
 
     def reward(self):
         agent = self.learn_agent
-        heading_cost = np.abs(agent.heading - agent.target_heading) * -2
-        steering_cost = np.abs(agent.steer) * -2
-        acceleration_cost = np.abs(agent.accel) * -1
+        # heading_cost = np.abs(agent.heading - agent.target_heading) * -2
+        # steering_cost = np.abs(agent.steer) * -2
+        # acceleration_cost = np.abs(agent.accel) * -1
+        vy = -agent.speed * np.sin(agent.heading)
         speed_reward = 0
-        if (agent.speed > agent.target_speed * 1.1):
+        if (vy > agent.target_speed * 1.1):
             speed_reward = -20
-        elif (agent.speed > agent.target_speed * 1.05):
+        elif (vy > agent.target_speed * 1.05):
             speed_reward = -2
-        elif (agent.speed > agent.target_speed * 0.90):
+        elif (vy > agent.target_speed * 0.90):
             speed_reward = 0
         else:
             speed_reward = -3
         # penalizes collisoins from the front more
         collision_cost = agent.collided * -500
 
+        # Alternate speed reward
+        speed_reward = np.abs(vy - agent.target_speed) * -1
+        if speed_reward > -0.5:
+            speed_reward = 0
+        elif speed_reward < -agent.target_speed/2:
+            speed_reward = -20
+
+        # Try to reward position
+        # pos_cost = 0
+        # if agent.pos[1] < self.space.y_max/2 - 70 or vy < agent.target_speed/2:
+        #     pos_cost = -10 
+        # print(pos_reward)
+
         # print("speed reward {}, accel cost {}, steer cost {}, collision cost {}".format(
             # speed_reward, acceleration_cost, steering_cost, collision_cost))
         # return speed_reward + acceleration_cost + steering_cost + \
                # collision_cost + heading_cost
-        return heading_cost + speed_reward
+        # print(speed_reward, collision_cost, heading_cost)
+
+        # print(vy, agent.target_speed, speed_reward, collision_cost, a, agent.steer, agent.accel)
+
+        return speed_reward + collision_cost
