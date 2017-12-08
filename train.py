@@ -3,6 +3,7 @@ from mesa.batchrunner import BatchRunner
 
 import numpy as np
 import argparse
+import math
 
 from matplotlib import pyplot as plt
 import os
@@ -12,34 +13,39 @@ import random
 from collections import deque
 
 BATCH_SIZE = 32
-
+UPDATE_TARGET_FREQUENCY = 10000
 
 class DeepQBatchRunner(BatchRunner):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.memory = deque(maxlen=2000)
+        self.memory = deque(maxlen=20000)
         self.epsilon = 1.0       # exploration rate
-        self.epsilon_min = 0.01
-        self.epsilon_decay = 0.995
+        self.epsilon_min = 0.1
+        self.epsilon_max = 1.0
+        self.epsilon_decay = - math.log(0.01) / 500000
+        self.all_steps = 0
 
     def run_model(self, model):
         agent = model.learn_agent
         agent.epsilon = self.epsilon
-        for _ in range(4):
-            agent.update_state_grid()
-        state = np.copy(agent.current_state)
+        model.count = self.all_steps
         while model.running and model.schedule.steps < self.max_steps:
-            if model.schedule.steps >= 4:
-                state = np.copy(agent.current_state)
+            state = np.array(agent.current_state)
             model.step()
-            if model.schedule.steps >= 4:
-                next_state = np.copy(agent.current_state)
-                self.memory.append((state, agent.action, agent.reward,
-                                    next_state, model.running))
+            next_state = np.array(agent.current_state)
+            self.memory.append((state, agent.action, agent.reward,
+                                next_state, model.running))
+            if self.all_steps % UPDATE_TARGET_FREQUENCY == 0:
+                agent.update_target_nn()
+            self.all_steps += 1
             if len(self.memory) > BATCH_SIZE:
                 agent.replay(self.memory, BATCH_SIZE)
-                if self.epsilon > self.epsilon_min:
-                    self.epsilon *= self.epsilon_decay
+            if self.all_steps < 0:
+                continue
+            self.epsilon = self.epsilon_min + \
+                    (self.epsilon_max - self.epsilon_min) * \
+                     math.exp(-self.epsilon_decay * self.all_steps)
+            agent.epsilon = self.epsilon
         agent.save()
 
 
@@ -103,9 +109,9 @@ def train_qlearn(args):
 
 def train_deepq(args):
     fixed_params = {"agent_type": "Deep Q Learn",
-                    "frozen": False, "epsilon": 1.0,
+                    "frozen": True, "epsilon": 1.0,
                     "episode_duration": 1000}
-    variable_params = {"num_adversaries": range(10, 11, 1)}
+    variable_params = {"num_adversaries": range(1, 2, 1)}
     batch_run = DeepQBatchRunner(ChaosModel,
                                  fixed_parameters=fixed_params,
                                  variable_parameters=variable_params,

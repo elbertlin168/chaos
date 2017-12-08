@@ -46,6 +46,7 @@ class ChaosModel(Model):
         self.running = True
 
         self.step_count = 0
+        self.count = 0
         self.curr_reward = 0
 
         self.reset()
@@ -193,10 +194,17 @@ class ChaosModel(Model):
         self.rewards_sum += self.curr_reward
 
         agent = self.learn_agent
-        if type(self.learn_agent) is DeepQCar and \
-                util.is_overlapping(agent.pos[0], agent.pos[1],
-                                    agent.width, agent.length,
-                                    agent.get_neighbors(), margin=0):
+        left = (self.space.x_max - self.road_width) / 2
+        # if type(agent) is DeepQCar and \
+        #         (agent.pos[0] - agent.length / 2 <= left or \
+        #          agent.pos[0] + agent.length / 2 >= left + self.road_width):
+        #     self.running = False
+        if type(agent) is DeepQCar and \
+                (agent.pos[0] - agent.length / 2 <= left or \
+                 agent.pos[0] + agent.length / 2 >= left + self.road_width or \
+                 util.is_overlapping(agent.pos[0], agent.pos[1],
+                                     agent.width, agent.length,
+                                     agent.get_neighbors(), margin=0)):
             self.running = False
 
     def reward(self):
@@ -241,23 +249,27 @@ class ChaosModel(Model):
         return speed_reward + collision_cost
 
     def deepq_reward(self, agent):
-        # Unit negative reward for collision
-        if util.is_overlapping(agent.pos[0], agent.pos[1],
-                               agent.width, agent.length,
-                               agent.get_neighbors(), margin=0):
+        left = (self.space.x_max - self.road_width) / 2
+        # Large negative reward for collision
+        if agent.pos[0] - agent.length / 2 <= left or \
+                agent.pos[0] + agent.length / 2 >= left + self.road_width:
             return -1
-        # Unit reward for staying at target speed and heading
+        if util.is_overlapping(agent.pos[0], agent.pos[1], agent.width,
+                                    agent.length, agent.get_neighbors(),
+                                    margin=0):
+            return -0.5
+        return 0
+        # Large positive reward for staying at target speed and heading
         # Linearly decreases based on magnitude of difference from actual
-        # Reward of 0 for staying at average (y) speed of all cars,
-        #     negative for below
+        # Reward of 0.5 for staying at average (y) speed of all cars
         # Assumes target speed > average speed
-        # Reward of 0 for changing lanes within one time step (TEST THIS)
+        # Reward of 0.5 for changing lanes within one time step (TEST THIS)
         # Assumes actions have no cost, but rather cause cost by changing
         #     resulting velocity (THIS MAY CHANGE)
-        average_speed = np.mean([car.speed * np.sin(car.heading) \
+        average_speed = np.mean([-car.speed * np.sin(car.heading) \
                                  for car in self.cars])
         agent_vel = agent.vel_components()
-        # x_cost = abs(agent_vel[0]) / 10
-        y_cost = abs(agent_vel[1] - agent.target_speed) / \
-                 (agent.target_speed - average_speed)
-        return max(1 - y_cost, -1)
+        x_cost = abs(agent_vel[0]) / 20
+        y_cost = abs(-agent_vel[1] - agent.target_speed) / \
+                 (agent.target_speed - average_speed) / 2
+        return max(1 - x_cost - y_cost, -1)

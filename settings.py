@@ -6,7 +6,8 @@ class AgentType(Enum):
     QLEARN = "Q Learn"
     DEEPQ = "Deep Q Learn"
 
-Actions = Enum("Actions", "S_M S_A S_B L_M L_A L_B R_M R_A R_B")
+# Actions = Enum("Actions", "S_M S_A S_B L_M L_A L_B R_M R_A R_B")
+Actions = Enum("Actions", "S L R")
 
 
 # Default car movement
